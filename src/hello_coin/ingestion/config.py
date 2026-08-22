@@ -16,10 +16,22 @@ class Settings(BaseSettings):
     etherscan_api_key: str | None = None
     etherscan_watch_addresses: Annotated[list[str], NoDecode] = []
 
+    debank_access_key: str | None = None
+    debank_watch_addresses: Annotated[list[str], NoDecode] = []
+    cryptoquant_api_key: str | None = None
+    nansen_api_key: str | None = None
+    nansen_watch_addresses: Annotated[list[str], NoDecode] = []
+    whale_alert_api_key: str | None = None
+    whale_alert_min_value_usd: int = 500_000
+    bitquery_access_token: str | None = None
+    bitquery_min_value_usd: int = 500_000
+
     @field_validator(
         "hyperliquid_watch_addresses",
         "exchange_watch_symbols",
         "etherscan_watch_addresses",
+        "debank_watch_addresses",
+        "nansen_watch_addresses",
         mode="before",
     )
     @classmethod
