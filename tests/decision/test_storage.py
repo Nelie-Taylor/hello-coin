@@ -10,6 +10,7 @@ def _decision(timestamp: datetime) -> Decision:
         timestamp=timestamp,
         whale_score=0.49,
         technical_score=0.475,
+        liquidation_score=0.23,
         weighted_score=0.485,
         action="buy",
         confidence=0.8,

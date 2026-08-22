@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS decisions (
     timestamp TEXT NOT NULL,
     whale_score REAL,
     technical_score REAL,
+    liquidation_score REAL,
     weighted_score REAL,
     action TEXT NOT NULL,
     confidence REAL NOT NULL,
@@ -40,15 +41,16 @@ class DecisionStorage:
         cursor = self._conn.execute(
             """
             INSERT OR IGNORE INTO decisions
-                (symbol, timestamp, whale_score, technical_score, weighted_score, action,
-                 confidence, reasoning, raw)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (symbol, timestamp, whale_score, technical_score, liquidation_score,
+                 weighted_score, action, confidence, reasoning, raw)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 decision.symbol,
                 decision.timestamp.isoformat(),
                 decision.whale_score,
                 decision.technical_score,
+                decision.liquidation_score,
                 decision.weighted_score,
                 decision.action,
                 decision.confidence,
