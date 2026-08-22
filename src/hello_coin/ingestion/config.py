@@ -13,8 +13,15 @@ class Settings(BaseSettings):
 
     hyperliquid_watch_addresses: Annotated[list[str], NoDecode] = []
     exchange_watch_symbols: Annotated[list[str], NoDecode] = ["BTCUSDT"]
+    etherscan_api_key: str | None = None
+    etherscan_watch_addresses: Annotated[list[str], NoDecode] = []
 
-    @field_validator("hyperliquid_watch_addresses", "exchange_watch_symbols", mode="before")
+    @field_validator(
+        "hyperliquid_watch_addresses",
+        "exchange_watch_symbols",
+        "etherscan_watch_addresses",
+        mode="before",
+    )
     @classmethod
     def _split_comma_separated(cls, value: object) -> object:
         if isinstance(value, str):
