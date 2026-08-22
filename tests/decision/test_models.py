@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from hello_coin.decision.models import Decision
 
@@ -6,7 +6,7 @@ from hello_coin.decision.models import Decision
 def test_decision_holds_fields():
     decision = Decision(
         symbol="BTCUSDT",
-        timestamp=datetime(2026, 8, 22, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 8, 22, tzinfo=UTC),
         whale_score=0.49,
         technical_score=0.475,
         weighted_score=0.485,
@@ -24,7 +24,7 @@ def test_decision_holds_fields():
 def test_decision_allows_none_scores():
     decision = Decision(
         symbol="BTCUSDT",
-        timestamp=datetime(2026, 8, 22, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 8, 22, tzinfo=UTC),
         whale_score=None,
         technical_score=0.475,
         weighted_score=None,

@@ -49,7 +49,7 @@ async def test_compute_decision_combines_scores_and_calls_llm():
     assert decision.reasoning == "Aligned signals."
 
     whale_storage.recent_events.assert_called_once()
-    args, kwargs = whale_storage.recent_events.call_args
+    args, _kwargs = whale_storage.recent_events.call_args
     assert args[0] == "BTC"  # base_asset("BTCUSDT")
     assert whale_storage.recent_metrics.call_count == 2  # full symbol + base asset
     mock_request_decision.assert_awaited_once()
