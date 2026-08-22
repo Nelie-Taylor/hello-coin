@@ -22,7 +22,9 @@ Python project managed with `uv` (src layout, package `hello_coin` under `src/he
   indicators), the two normalized shapes every adapter produces.
 - `adapters/base.py` — `Adapter` abstract base: subclasses implement only `fetch()`;
   `safe_fetch()` handles logging and disabling a source after repeated failures.
-- `adapters/*.py` — one file per data source. Only `hyperliquid.py` exists so far.
+- `adapters/*.py` — one file per data source: `hyperliquid.py` (per-wallet fills), and
+  `binance.py`/`okx.py`/`bybit.py`/`bitget.py` (public long/short account-ratio metrics, no API
+  key needed).
 - `registry.py` — builds the list of adapters whose `is_configured()` is true.
 - `storage.py` — SQLite (`data/whale.db`, gitignored) with dedup on `(source, dedup_key)`.
 - `scheduler.py` — runs every configured adapter concurrently, each on its own

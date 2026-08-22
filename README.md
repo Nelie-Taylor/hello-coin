@@ -20,7 +20,10 @@ uv run hello-coin
 
 1. Copy `.env.example` to `.env` and set `HYPERLIQUID_WATCH_ADDRESSES` to one or more
    comma-separated wallet addresses (find some on the Hyperliquid app's public leaderboard).
+   `EXCHANGE_WATCH_SYMBOLS` defaults to `BTCUSDT` and needs no key — the Binance/OKX/Bybit/Bitget
+   adapters work out of the box.
 2. Fetch once from a single adapter to sanity-check it: `uv run hello-coin ingest test hyperliquid`
+   (or `binance`, `okx`, `bybit`, `bitget`).
 3. Run the service continuously: `uv run hello-coin ingest run` — writes to `data/whale.db`.
 
 ## Test
