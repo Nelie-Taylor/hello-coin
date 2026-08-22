@@ -12,10 +12,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     hyperliquid_watch_addresses: Annotated[list[str], NoDecode] = []
+    exchange_watch_symbols: Annotated[list[str], NoDecode] = ["BTCUSDT"]
 
-    @field_validator("hyperliquid_watch_addresses", mode="before")
+    @field_validator("hyperliquid_watch_addresses", "exchange_watch_symbols", mode="before")
     @classmethod
-    def _split_addresses(cls, value: object) -> object:
+    def _split_comma_separated(cls, value: object) -> object:
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value

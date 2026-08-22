@@ -15,3 +15,19 @@ def test_parses_comma_separated_addresses(monkeypatch):
     settings = Settings(_env_file=None)
 
     assert settings.hyperliquid_watch_addresses == ["0xaaa", "0xbbb", "0xccc"]
+
+
+def test_exchange_watch_symbols_defaults_to_btcusdt(monkeypatch):
+    monkeypatch.delenv("EXCHANGE_WATCH_SYMBOLS", raising=False)
+
+    settings = Settings(_env_file=None)
+
+    assert settings.exchange_watch_symbols == ["BTCUSDT"]
+
+
+def test_exchange_watch_symbols_parses_comma_separated(monkeypatch):
+    monkeypatch.setenv("EXCHANGE_WATCH_SYMBOLS", "BTCUSDT, ETHUSDT ,SOLUSDT")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.exchange_watch_symbols == ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
