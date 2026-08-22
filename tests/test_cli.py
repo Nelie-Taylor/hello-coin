@@ -37,3 +37,22 @@ def test_technical_test_parses_symbol():
     assert args.command == "technical"
     assert args.technical_command == "test"
     assert args.symbol == "BTCUSDT"
+
+
+def test_decision_run_parses():
+    parser = build_parser()
+
+    args = parser.parse_args(["decision", "run"])
+
+    assert args.command == "decision"
+    assert args.decision_command == "run"
+
+
+def test_decision_test_parses_symbol():
+    parser = build_parser()
+
+    args = parser.parse_args(["decision", "test", "BTCUSDT"])
+
+    assert args.command == "decision"
+    assert args.decision_command == "test"
+    assert args.symbol == "BTCUSDT"

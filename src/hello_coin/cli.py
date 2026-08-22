@@ -2,6 +2,11 @@ import argparse
 import asyncio
 import logging
 
+from anthropic import AsyncAnthropic
+
+from hello_coin.decision.scheduler import run_forever as run_decision_forever
+from hello_coin.decision.service import compute_decision
+from hello_coin.decision.storage import DecisionStorage
 from hello_coin.ingestion.config import Settings
 from hello_coin.ingestion.registry import build_adapters
 from hello_coin.ingestion.scheduler import run_forever as run_ingestion_forever
@@ -12,6 +17,7 @@ from hello_coin.technical.storage import TechnicalStorage
 
 DEFAULT_WHALE_DB_PATH = "data/whale.db"
 DEFAULT_TECHNICAL_DB_PATH = "data/technical.db"
+DEFAULT_DECISION_DB_PATH = "data/decisions.db"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -35,6 +41,14 @@ def build_parser() -> argparse.ArgumentParser:
         "test", help="Compute one snapshot for a symbol and print the result"
     )
     technical_test_parser.add_argument("symbol", help="Symbol, e.g. BTCUSDT")
+
+    decision_parser = subparsers.add_parser("decision", help="AI decision engine commands")
+    decision_subparsers = decision_parser.add_subparsers(dest="decision_command", required=True)
+    decision_subparsers.add_parser("run", help="Run the decision engine continuously")
+    decision_test_parser = decision_subparsers.add_parser(
+        "test", help="Compute one decision for a symbol and print the result"
+    )
+    decision_test_parser.add_argument("symbol", help="Symbol, e.g. BTCUSDT")
 
     return parser
 
@@ -78,6 +92,56 @@ async def _test_technical(symbol: str) -> None:
     print(snapshot)
 
 
+async def _run_decision() -> None:
+    settings = Settings()
+    if not settings.anthropic_api_key:
+        print("ANTHROPIC_API_KEY is not set — the decision engine is not configured.")
+        return
+    whale_storage = WhaleStorage(DEFAULT_WHALE_DB_PATH)
+    technical_storage = TechnicalStorage(DEFAULT_TECHNICAL_DB_PATH)
+    decision_storage = DecisionStorage(DEFAULT_DECISION_DB_PATH)
+    try:
+        async with AsyncAnthropic(api_key=settings.anthropic_api_key) as client:
+            await run_decision_forever(
+                symbols=settings.exchange_watch_symbols,
+                timeframe=settings.technical_timeframe,
+                whale_storage=whale_storage,
+                technical_storage=technical_storage,
+                anthropic_client=client,
+                model=settings.anthropic_model,
+                whale_lookback_hours=settings.decision_whale_lookback_hours,
+                storage=decision_storage,
+            )
+    finally:
+        whale_storage.close()
+        technical_storage.close()
+        decision_storage.close()
+
+
+async def _test_decision(symbol: str) -> None:
+    settings = Settings()
+    if not settings.anthropic_api_key:
+        print("ANTHROPIC_API_KEY is not set — the decision engine is not configured.")
+        return
+    whale_storage = WhaleStorage(DEFAULT_WHALE_DB_PATH)
+    technical_storage = TechnicalStorage(DEFAULT_TECHNICAL_DB_PATH)
+    try:
+        async with AsyncAnthropic(api_key=settings.anthropic_api_key) as client:
+            decision = await compute_decision(
+                symbol=symbol,
+                timeframe=settings.technical_timeframe,
+                whale_storage=whale_storage,
+                technical_storage=technical_storage,
+                anthropic_client=client,
+                model=settings.anthropic_model,
+                whale_lookback_hours=settings.decision_whale_lookback_hours,
+            )
+        print(decision)
+    finally:
+        whale_storage.close()
+        technical_storage.close()
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = build_parser()
@@ -91,3 +155,7 @@ def main() -> None:
         asyncio.run(_run_technical())
     elif args.command == "technical" and args.technical_command == "test":
         asyncio.run(_test_technical(args.symbol))
+    elif args.command == "decision" and args.decision_command == "run":
+        asyncio.run(_run_decision())
+    elif args.command == "decision" and args.decision_command == "test":
+        asyncio.run(_test_decision(args.symbol))

@@ -116,3 +116,26 @@ def test_technical_timeframe_reads_from_env(monkeypatch):
     settings = Settings(_env_file=None)
 
     assert settings.technical_timeframe == "4h"
+
+
+def test_decision_settings_default(monkeypatch):
+    for var in ("ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "DECISION_WHALE_LOOKBACK_HOURS"):
+        monkeypatch.delenv(var, raising=False)
+
+    settings = Settings(_env_file=None)
+
+    assert settings.anthropic_api_key is None
+    assert settings.anthropic_model == "claude-sonnet-5"
+    assert settings.decision_whale_lookback_hours == 24
+
+
+def test_decision_settings_read_from_env(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "claude-opus-5")
+    monkeypatch.setenv("DECISION_WHALE_LOOKBACK_HOURS", "12")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.anthropic_api_key == "sk-ant-test"
+    assert settings.anthropic_model == "claude-opus-5"
+    assert settings.decision_whale_lookback_hours == 12

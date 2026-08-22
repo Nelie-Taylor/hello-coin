@@ -28,6 +28,10 @@ class Settings(BaseSettings):
 
     technical_timeframe: str = "1h"
 
+    anthropic_api_key: str | None = None
+    anthropic_model: str = "claude-sonnet-5"
+    decision_whale_lookback_hours: int = 24
+
     @field_validator(
         "hyperliquid_watch_addresses",
         "exchange_watch_symbols",
