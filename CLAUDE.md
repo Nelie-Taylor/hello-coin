@@ -22,11 +22,17 @@ Python project managed with `uv` (src layout, package `hello_coin` under `src/he
   indicators), the two normalized shapes every adapter produces.
 - `adapters/base.py` — `Adapter` abstract base: subclasses implement only `fetch()`;
   `safe_fetch()` handles logging and disabling a source after repeated failures.
-- `adapters/*.py` — one file per data source: `hyperliquid.py` (per-wallet fills),
-  `binance.py`/`okx.py`/`bybit.py`/`bitget.py` (public long/short account-ratio metrics, no API
-  key needed), and `etherscan.py` (per-wallet transfers on Ethereum/BSC/Polygon via Etherscan's
-  unified V2 API — one class, three registered instances, one per `chainid`; needs a free
-  Etherscan API key).
+- `adapters/*.py` — one file per data source:
+  - No key needed: `hyperliquid.py`, `binance.py`, `okx.py`, `bybit.py`, `bitget.py`.
+  - Free key: `etherscan.py` (Ethereum/BSC/Polygon via Etherscan's unified V2 API — one class,
+    three registered instances, one per `chainid`).
+  - Paid/freemium key: `cryptoquant.py`, `debank.py`, `nansen.py`, `whale_alert.py`,
+    `bitquery.py`. None of these have been smoke-tested against a real key — see
+    `docs/superpowers/plans/2026-08-22-freemium-paid-adapters.md` for per-adapter confidence
+    notes (Whale Alert and Bitquery parse their responses defensively since their exact
+    response shape wasn't first-party-confirmed).
+  - Deferred (not implemented — insufficient verification): ClankApp, Solscan, Arkham. See the
+    same plan doc for why.
 - `registry.py` — builds the list of adapters whose `is_configured()` is true.
 - `storage.py` — SQLite (`data/whale.db`, gitignored) with dedup on `(source, dedup_key)`.
 - `scheduler.py` — runs every configured adapter concurrently, each on its own

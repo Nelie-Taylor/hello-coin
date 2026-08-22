@@ -45,18 +45,19 @@ src/hello_coin/
       base.py         # abstract Adapter: name, poll_interval, is_configured(), fetch()
       hyperliquid.py
       etherscan.py     # Ethereum/BSC/Polygon via Etherscan's unified V2 API (chainid param);
-                       # Solscan is a separate, non-EVM API and needs its own adapter file
-      solscan.py
-      clankapp.py      # unverified as of 2026-08-22 — clankapp.com blocks automated fetches
-                       # and its api./docs. subdomains don't resolve; needs re-verification
-                       # before implementation
-      debank.py        # DeBank's free "Open API" has been superseded by paid, unit-based
-                       # "DeBank Cloud" (AccessKey + purchased units) — no longer free
-      whale_alert.py
-      bitquery.py
-      nansen.py
-      arkham.py
-      cryptoquant.py
+                       # implemented, fully verified. Solscan is a separate, non-EVM API.
+      solscan.py       # DEFERRED — paid-only ($49/mo min), response schema unverified
+      clankapp.py      # DEFERRED — unverified as of 2026-08-22, clankapp.com blocks
+                       # automated fetches and its api./docs. subdomains don't resolve
+      debank.py        # DeBank Cloud (paid, unit-based AccessKey) — implemented, fully
+                       # verified. Superseded the originally-planned free "Open API".
+      whale_alert.py   # global feed, min_value filter — implemented, response schema
+                       # secondhand-sourced (see 2026-08-22-freemium-paid-adapters.md)
+      bitquery.py      # GraphQL, global feed — implemented, query shape not 100%
+                       # verbatim-confirmed (see 2026-08-22-freemium-paid-adapters.md)
+      nansen.py        # per-wallet labeled transactions — implemented, fully verified
+      arkham.py        # DEFERRED — HMAC signing scheme undocumented, not implemented
+      cryptoquant.py   # exchange whale ratio — implemented, fully verified
       binance.py
       okx.py
       bybit.py

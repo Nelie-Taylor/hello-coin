@@ -26,10 +26,16 @@ uv run hello-coin
    [etherscan.io](https://etherscan.io/apis) and set `ETHERSCAN_API_KEY` plus
    `ETHERSCAN_WATCH_ADDRESSES` (comma-separated EVM wallet addresses) in `.env`. These adapters
    watch Ethereum, BSC, and Polygon with the same key/address list.
-3. Fetch once from a single adapter to sanity-check it: `uv run hello-coin ingest test hyperliquid`
+3. The paid/freemium adapters (CryptoQuant, DeBank, Nansen, Whale Alert, Bitquery) each need
+   their own key in `.env` — see `.env.example` for the exact variable names. None of these
+   have been verified against a real key in this environment; if a response shape turns out to
+   differ from what's implemented, that adapter will show repeated failures in the logs and
+   disable itself after a few consecutive misses (see `Adapter.safe_fetch` in
+   `src/hello_coin/ingestion/adapters/base.py`) rather than crash the service.
+4. Fetch once from a single adapter to sanity-check it: `uv run hello-coin ingest test hyperliquid`
    (or `binance`, `okx`, `bybit`, `bitget`, `etherscan_ethereum`, `etherscan_bsc`,
-   `etherscan_polygon`).
-4. Run the service continuously: `uv run hello-coin ingest run` — writes to `data/whale.db`.
+   `etherscan_polygon`, `cryptoquant`, `debank`, `nansen`, `whale_alert`, `bitquery`).
+5. Run the service continuously: `uv run hello-coin ingest run` — writes to `data/whale.db`.
 
 ## Test
 
