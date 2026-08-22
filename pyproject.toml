@@ -33,7 +33,7 @@ target-version = "py312"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-addopts = "-m 'not network'"
+addopts = "-m 'not network' --import-mode=importlib"
 markers = [
     "network: hits a real external API; excluded by default, run with `-m network`",
 ]
