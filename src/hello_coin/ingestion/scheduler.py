@@ -25,7 +25,7 @@ async def run_adapter_loop(
         logger.info("%s: inserted %d new row(s)", adapter.name, inserted)
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=adapter.poll_interval_seconds)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass
 
 

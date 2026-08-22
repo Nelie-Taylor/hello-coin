@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -12,7 +12,7 @@ from hello_coin.ingestion.storage import WhaleStorage
 def _event(dedup_key: str) -> WhaleEvent:
     return WhaleEvent(
         source="fake",
-        timestamp=datetime(2026, 8, 22, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 8, 22, tzinfo=UTC),
         chain_or_exchange="fake",
         symbol="BTC",
         event_type="fill",

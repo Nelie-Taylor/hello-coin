@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from hello_coin.ingestion.models import WhaleEvent, WhaleMetric
 from hello_coin.ingestion.storage import WhaleStorage
@@ -7,7 +7,7 @@ from hello_coin.ingestion.storage import WhaleStorage
 def _event(dedup_key: str) -> WhaleEvent:
     return WhaleEvent(
         source="hyperliquid",
-        timestamp=datetime(2026, 8, 22, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 8, 22, tzinfo=UTC),
         chain_or_exchange="hyperliquid",
         symbol="BTC",
         event_type="fill",
@@ -37,7 +37,7 @@ def test_insert_metrics_returns_count_and_dedupes():
     storage = WhaleStorage(":memory:")
     metric = WhaleMetric(
         source="binance",
-        timestamp=datetime(2026, 8, 22, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 8, 22, tzinfo=UTC),
         symbol="BTCUSDT",
         metric_name="oi",
         value=1.0,

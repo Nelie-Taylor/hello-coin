@@ -1,5 +1,5 @@
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -18,7 +18,7 @@ def _parse_fill(address: str, fill: dict[str, Any]) -> WhaleEvent:
     size = float(fill["sz"])
     return WhaleEvent(
         source="hyperliquid",
-        timestamp=datetime.fromtimestamp(fill["time"] / 1000, tz=timezone.utc),
+        timestamp=datetime.fromtimestamp(fill["time"] / 1000, tz=UTC),
         chain_or_exchange="hyperliquid",
         symbol=fill["coin"],
         event_type="fill",

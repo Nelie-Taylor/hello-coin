@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from hello_coin.ingestion.models import WhaleEvent, WhaleMetric
 
@@ -6,7 +6,7 @@ from hello_coin.ingestion.models import WhaleEvent, WhaleMetric
 def test_whale_event_holds_fields():
     event = WhaleEvent(
         source="hyperliquid",
-        timestamp=datetime(2026, 8, 22, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 8, 22, tzinfo=UTC),
         chain_or_exchange="hyperliquid",
         symbol="BTC",
         event_type="fill",
@@ -26,7 +26,7 @@ def test_whale_event_holds_fields():
 def test_whale_metric_holds_fields():
     metric = WhaleMetric(
         source="binance",
-        timestamp=datetime(2026, 8, 22, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 8, 22, tzinfo=UTC),
         symbol="BTCUSDT",
         metric_name="top_trader_long_short_ratio",
         value=1.8,
