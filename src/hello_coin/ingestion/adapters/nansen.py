@@ -21,7 +21,7 @@ def _parse_transaction(address: str, row: dict[str, Any]) -> WhaleEvent | None:
         return None
     return WhaleEvent(
         source="nansen",
-        timestamp=datetime.fromisoformat(row["block_timestamp"].replace("Z", "+00:00")),
+        timestamp=datetime.fromisoformat(row["block_timestamp"]),
         chain_or_exchange=row["chain"],
         symbol=token["token_symbol"],
         event_type="transfer",
