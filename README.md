@@ -22,9 +22,14 @@ uv run hello-coin
    comma-separated wallet addresses (find some on the Hyperliquid app's public leaderboard).
    `EXCHANGE_WATCH_SYMBOLS` defaults to `BTCUSDT` and needs no key — the Binance/OKX/Bybit/Bitget
    adapters work out of the box.
-2. Fetch once from a single adapter to sanity-check it: `uv run hello-coin ingest test hyperliquid`
-   (or `binance`, `okx`, `bybit`, `bitget`).
-3. Run the service continuously: `uv run hello-coin ingest run` — writes to `data/whale.db`.
+2. For the Etherscan-family adapters, register a free API key at
+   [etherscan.io](https://etherscan.io/apis) and set `ETHERSCAN_API_KEY` plus
+   `ETHERSCAN_WATCH_ADDRESSES` (comma-separated EVM wallet addresses) in `.env`. These adapters
+   watch Ethereum, BSC, and Polygon with the same key/address list.
+3. Fetch once from a single adapter to sanity-check it: `uv run hello-coin ingest test hyperliquid`
+   (or `binance`, `okx`, `bybit`, `bitget`, `etherscan_ethereum`, `etherscan_bsc`,
+   `etherscan_polygon`).
+4. Run the service continuously: `uv run hello-coin ingest run` — writes to `data/whale.db`.
 
 ## Test
 
