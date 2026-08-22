@@ -37,6 +37,14 @@ uv run hello-coin
    `etherscan_polygon`, `cryptoquant`, `debank`, `nansen`, `whale_alert`, `bitquery`).
 5. Run the service continuously: `uv run hello-coin ingest run` — writes to `data/whale.db`.
 
+## Technical indicators
+
+1. No extra config needed — reuses `EXCHANGE_WATCH_SYMBOLS` from whale ingestion (default
+   `BTCUSDT`) and defaults `TECHNICAL_TIMEFRAME` to `1h`.
+2. Fetch once to sanity-check it: `uv run hello-coin technical test BTCUSDT`
+3. Run the service continuously: `uv run hello-coin technical run` — writes to
+   `data/technical.db`.
+
 ## Test
 
 ```

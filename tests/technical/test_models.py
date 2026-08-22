@@ -1,11 +1,11 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from hello_coin.technical.models import Candle, IndicatorSnapshot
 
 
 def test_candle_holds_fields():
     candle = Candle(
-        open_time=datetime(2026, 8, 22, tzinfo=timezone.utc),
+        open_time=datetime(2026, 8, 22, tzinfo=UTC),
         open=100.0,
         high=105.0,
         low=99.0,
@@ -21,7 +21,7 @@ def test_indicator_snapshot_allows_none_fields_before_enough_history():
     snapshot = IndicatorSnapshot(
         symbol="BTCUSDT",
         timeframe="1h",
-        timestamp=datetime(2026, 8, 22, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 8, 22, tzinfo=UTC),
         close_price=104.0,
         rsi=None,
         macd_line=None,

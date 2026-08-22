@@ -40,11 +40,26 @@ Python project managed with `uv` (src layout, package `hello_coin` under `src/he
 - `config.py` — `pydantic-settings` reading `.env` (see `.env.example`); every adapter's
   credentials are optional, so the service runs with whatever subset is configured.
 
-`src/hello_coin/cli.py` is the entry point: `hello-coin ingest run` starts the service,
-`hello-coin ingest test <source>` fetches once from one adapter and prints the result.
+`src/hello_coin/technical/` is the technical-indicators layer (the 30%-weighted signal), see
+`docs/superpowers/specs/2026-08-22-technical-indicators-design.md`:
 
-No decision engine, technical indicators, or trade execution code exists yet — those are
-separate, not-yet-planned pieces of the product intent below.
+- `models.py` — `Candle` and `IndicatorSnapshot` (all indicator fields `float | None`; `None`
+  means not enough history yet, never a fabricated number).
+- `indicators.py` — pure functions: `rsi()`, `macd()`, `bollinger_bands()`, `ema()`, `atr()`.
+  No HTTP, no models — testable against hand-verified reference values with zero mocking.
+- `klines.py` — fetches OHLCV candles from Binance's public futures klines endpoint (no key).
+- `service.py` — combines `klines.py` + `indicators.py` into one `IndicatorSnapshot`.
+- `storage.py` — SQLite (`data/technical.db`, gitignored) with dedup on
+  `(symbol, timeframe, timestamp)`.
+- `scheduler.py` — polls every symbol in `exchange_watch_symbols` every 15 minutes. No
+  `Adapter`-style registry — there's one data source here, not many.
+
+`src/hello_coin/cli.py` is the entry point: `hello-coin ingest run` / `hello-coin technical run`
+start the two services, `hello-coin ingest test <source>` / `hello-coin technical test <symbol>`
+fetch or compute once and print the result.
+
+No decision engine or trade execution code exists yet — those are separate, not-yet-planned
+pieces of the product intent below.
 
 ## Product intent
 
