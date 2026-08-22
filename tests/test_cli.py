@@ -18,3 +18,22 @@ def test_ingest_test_parses_source():
     assert args.command == "ingest"
     assert args.ingest_command == "test"
     assert args.source == "hyperliquid"
+
+
+def test_technical_run_parses():
+    parser = build_parser()
+
+    args = parser.parse_args(["technical", "run"])
+
+    assert args.command == "technical"
+    assert args.technical_command == "run"
+
+
+def test_technical_test_parses_symbol():
+    parser = build_parser()
+
+    args = parser.parse_args(["technical", "test", "BTCUSDT"])
+
+    assert args.command == "technical"
+    assert args.technical_command == "test"
+    assert args.symbol == "BTCUSDT"

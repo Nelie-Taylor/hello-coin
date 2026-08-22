@@ -100,3 +100,19 @@ def test_min_value_thresholds_read_from_env(monkeypatch):
 
     assert settings.whale_alert_min_value_usd == 1_000_000
     assert settings.bitquery_min_value_usd == 250_000
+
+
+def test_technical_timeframe_defaults_to_1h(monkeypatch):
+    monkeypatch.delenv("TECHNICAL_TIMEFRAME", raising=False)
+
+    settings = Settings(_env_file=None)
+
+    assert settings.technical_timeframe == "1h"
+
+
+def test_technical_timeframe_reads_from_env(monkeypatch):
+    monkeypatch.setenv("TECHNICAL_TIMEFRAME", "4h")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.technical_timeframe == "4h"

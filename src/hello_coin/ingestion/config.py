@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     bitquery_access_token: str | None = None
     bitquery_min_value_usd: int = 500_000
 
+    technical_timeframe: str = "1h"
+
     @field_validator(
         "hyperliquid_watch_addresses",
         "exchange_watch_symbols",
