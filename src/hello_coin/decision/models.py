@@ -11,6 +11,7 @@ class Decision:
     timestamp: datetime
     whale_score: float | None
     technical_score: float | None
+    liquidation_score: float | None
     weighted_score: float | None
     action: str  # "buy" | "sell" | "hold"
     confidence: float
