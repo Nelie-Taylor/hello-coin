@@ -50,3 +50,41 @@ def test_insert_metrics_returns_count_and_dedupes():
 
     assert inserted_first == 1
     assert inserted_second == 0
+
+
+def test_recent_events_filters_by_symbol_case_insensitive_and_since():
+    storage = WhaleStorage(":memory:")
+    old_event = _event("a")  # symbol="BTC", timestamp=2026-08-22 (see _event() above)
+    storage.insert_events([old_event])
+
+    matching = storage.recent_events("btc", since=datetime(2026, 8, 21, tzinfo=UTC))
+    too_late = storage.recent_events("btc", since=datetime(2026, 8, 23, tzinfo=UTC))
+    wrong_symbol = storage.recent_events("eth", since=datetime(2026, 8, 21, tzinfo=UTC))
+
+    assert len(matching) == 1
+    assert matching[0]["side"] == "buy"
+    assert matching[0]["amount_usd"] == 60000.0
+    assert too_late == []
+    assert wrong_symbol == []
+
+
+def test_recent_metrics_filters_by_symbol_case_insensitive_and_since():
+    storage = WhaleStorage(":memory:")
+    metric = WhaleMetric(
+        source="binance",
+        timestamp=datetime(2026, 8, 22, tzinfo=UTC),
+        symbol="BTCUSDT",
+        metric_name="top_trader_long_short_ratio",
+        value=1.8,
+        dedup_key="m1",
+        raw={},
+    )
+    storage.insert_metrics([metric])
+
+    matching = storage.recent_metrics("btcusdt", since=datetime(2026, 8, 21, tzinfo=UTC))
+    wrong_symbol = storage.recent_metrics("btc", since=datetime(2026, 8, 21, tzinfo=UTC))
+
+    assert len(matching) == 1
+    assert matching[0]["metric_name"] == "top_trader_long_short_ratio"
+    assert matching[0]["value"] == 1.8
+    assert wrong_symbol == []

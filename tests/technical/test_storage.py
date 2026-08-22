@@ -39,3 +39,21 @@ def test_insert_snapshot_returns_count_and_dedupes():
     assert storage.count_snapshots() == 2
     assert storage.count_snapshots(symbol="BTCUSDT") == 2
     assert storage.count_snapshots(symbol="ETHUSDT") == 0
+
+
+def test_latest_snapshot_returns_most_recent_row_for_symbol_and_timeframe():
+    storage = TechnicalStorage(":memory:")
+    storage.insert_snapshot(_snapshot(datetime(2026, 8, 22, 0, tzinfo=UTC)))
+    storage.insert_snapshot(_snapshot(datetime(2026, 8, 22, 1, tzinfo=UTC)))
+
+    latest = storage.latest_snapshot("BTCUSDT", "1h")
+
+    assert latest is not None
+    assert latest["timestamp"] == "2026-08-22T01:00:00+00:00"
+    assert latest["rsi"] == 55.0
+
+
+def test_latest_snapshot_returns_none_when_no_rows():
+    storage = TechnicalStorage(":memory:")
+
+    assert storage.latest_snapshot("ETHUSDT", "1h") is None

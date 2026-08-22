@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 
 from hello_coin.ingestion.models import WhaleEvent, WhaleMetric
@@ -112,3 +113,40 @@ class WhaleStorage:
                 "SELECT COUNT(*) FROM whale_events WHERE source = ?", (source,)
             ).fetchone()
         return int(row[0])
+
+    def recent_events(self, symbol: str, since: datetime) -> list[dict]:
+        rows = self._conn.execute(
+            """
+            SELECT source, timestamp, chain_or_exchange, symbol, event_type, side, amount,
+                   amount_usd, wallet_address, dedup_key, raw
+            FROM whale_events
+            WHERE symbol = ? COLLATE NOCASE AND timestamp >= ?
+            """,
+            (symbol, since.isoformat()),
+        ).fetchall()
+        columns = (
+            "source",
+            "timestamp",
+            "chain_or_exchange",
+            "symbol",
+            "event_type",
+            "side",
+            "amount",
+            "amount_usd",
+            "wallet_address",
+            "dedup_key",
+            "raw",
+        )
+        return [dict(zip(columns, row, strict=True)) for row in rows]
+
+    def recent_metrics(self, symbol: str, since: datetime) -> list[dict]:
+        rows = self._conn.execute(
+            """
+            SELECT source, timestamp, symbol, metric_name, value, dedup_key, raw
+            FROM whale_metrics
+            WHERE symbol = ? COLLATE NOCASE AND timestamp >= ?
+            """,
+            (symbol, since.isoformat()),
+        ).fetchall()
+        columns = ("source", "timestamp", "symbol", "metric_name", "value", "dedup_key", "raw")
+        return [dict(zip(columns, row, strict=True)) for row in rows]

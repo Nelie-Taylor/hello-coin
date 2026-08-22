@@ -77,3 +77,35 @@ class TechnicalStorage:
                 "SELECT COUNT(*) FROM technical_snapshots WHERE symbol = ?", (symbol,)
             ).fetchone()
         return int(row[0])
+
+    def latest_snapshot(self, symbol: str, timeframe: str) -> dict | None:
+        row = self._conn.execute(
+            """
+            SELECT symbol, timeframe, timestamp, close_price, rsi, macd_line, macd_signal,
+                   macd_histogram, bb_upper, bb_middle, bb_lower, ema, atr, raw
+            FROM technical_snapshots
+            WHERE symbol = ? AND timeframe = ?
+            ORDER BY timestamp DESC
+            LIMIT 1
+            """,
+            (symbol, timeframe),
+        ).fetchone()
+        if row is None:
+            return None
+        columns = (
+            "symbol",
+            "timeframe",
+            "timestamp",
+            "close_price",
+            "rsi",
+            "macd_line",
+            "macd_signal",
+            "macd_histogram",
+            "bb_upper",
+            "bb_middle",
+            "bb_lower",
+            "ema",
+            "atr",
+            "raw",
+        )
+        return dict(zip(columns, row, strict=True))
