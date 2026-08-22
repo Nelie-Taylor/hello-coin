@@ -3,10 +3,15 @@ import logging
 from hello_coin.ingestion.adapters.base import Adapter
 from hello_coin.ingestion.adapters.binance import BinanceAdapter
 from hello_coin.ingestion.adapters.bitget import BitgetAdapter
+from hello_coin.ingestion.adapters.bitquery import BitqueryAdapter
 from hello_coin.ingestion.adapters.bybit import BybitAdapter
+from hello_coin.ingestion.adapters.cryptoquant import CryptoQuantAdapter
+from hello_coin.ingestion.adapters.debank import DebankAdapter
 from hello_coin.ingestion.adapters.etherscan import ETHERSCAN_CHAINS, EtherscanAdapter
 from hello_coin.ingestion.adapters.hyperliquid import HyperliquidAdapter
+from hello_coin.ingestion.adapters.nansen import NansenAdapter
 from hello_coin.ingestion.adapters.okx import OkxAdapter
+from hello_coin.ingestion.adapters.whale_alert import WhaleAlertAdapter
 from hello_coin.ingestion.config import Settings
 
 logger = logging.getLogger(__name__)
@@ -24,6 +29,11 @@ def build_adapters(settings: Settings) -> list[Adapter]:
         BybitAdapter(settings),
         BitgetAdapter(settings),
         *(EtherscanAdapter(settings, chain_key=chain_key) for chain_key in ETHERSCAN_CHAINS),
+        CryptoQuantAdapter(settings),
+        DebankAdapter(settings),
+        NansenAdapter(settings),
+        WhaleAlertAdapter(settings),
+        BitqueryAdapter(settings),
     ]
 
     configured: list[Adapter] = []

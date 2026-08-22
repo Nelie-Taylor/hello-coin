@@ -12,6 +12,11 @@ ALL_NAMES = [
     "etherscan_ethereum",
     "etherscan_bsc",
     "etherscan_polygon",
+    "cryptoquant",
+    "debank",
+    "nansen",
+    "whale_alert",
+    "bitquery",
 ]
 
 
@@ -20,6 +25,13 @@ def test_build_adapters_includes_all_configured_sources():
         hyperliquid_watch_addresses=["0xabc"],
         etherscan_api_key="test-key",
         etherscan_watch_addresses=["0xabc"],
+        cryptoquant_api_key="test-key",
+        debank_access_key="test-key",
+        debank_watch_addresses=["0xabc"],
+        nansen_api_key="test-key",
+        nansen_watch_addresses=["0xabc"],
+        whale_alert_api_key="test-key",
+        bitquery_access_token="test-token",
     )
 
     adapters = build_adapters(settings)
@@ -57,3 +69,15 @@ def test_build_adapters_skips_etherscan_chains_when_not_configured(caplog):
     assert "etherscan_ethereum" not in [a.name for a in adapters]
     for chain in ("etherscan_ethereum", "etherscan_bsc", "etherscan_polygon"):
         assert chain in caplog.text
+
+
+def test_build_adapters_skips_freemium_sources_when_not_configured(caplog):
+    settings = Settings(hyperliquid_watch_addresses=["0xabc"])
+
+    with caplog.at_level(logging.WARNING):
+        adapters = build_adapters(settings)
+
+    names = [a.name for a in adapters]
+    for source in ("cryptoquant", "debank", "nansen", "whale_alert", "bitquery"):
+        assert source not in names
+        assert source in caplog.text
