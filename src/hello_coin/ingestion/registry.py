@@ -1,7 +1,11 @@
 import logging
 
 from hello_coin.ingestion.adapters.base import Adapter
+from hello_coin.ingestion.adapters.binance import BinanceAdapter
+from hello_coin.ingestion.adapters.bitget import BitgetAdapter
+from hello_coin.ingestion.adapters.bybit import BybitAdapter
 from hello_coin.ingestion.adapters.hyperliquid import HyperliquidAdapter
+from hello_coin.ingestion.adapters.okx import OkxAdapter
 from hello_coin.ingestion.config import Settings
 
 logger = logging.getLogger(__name__)
@@ -12,7 +16,13 @@ def build_adapters(settings: Settings) -> list[Adapter]:
     warning for each one that's skipped. Add new adapters to `candidates`
     here as they're implemented."""
 
-    candidates: list[Adapter] = [HyperliquidAdapter(settings)]
+    candidates: list[Adapter] = [
+        HyperliquidAdapter(settings),
+        BinanceAdapter(settings),
+        OkxAdapter(settings),
+        BybitAdapter(settings),
+        BitgetAdapter(settings),
+    ]
 
     configured: list[Adapter] = []
     for adapter in candidates:
