@@ -44,9 +44,14 @@ src/hello_coin/
     adapters/
       base.py         # abstract Adapter: name, poll_interval, is_configured(), fetch()
       hyperliquid.py
-      clankapp.py
-      etherscan.py     # parametrized per chain (Etherscan/BscScan/Polygonscan/Solscan)
-      debank.py
+      etherscan.py     # Ethereum/BSC/Polygon via Etherscan's unified V2 API (chainid param);
+                       # Solscan is a separate, non-EVM API and needs its own adapter file
+      solscan.py
+      clankapp.py      # unverified as of 2026-08-22 — clankapp.com blocks automated fetches
+                       # and its api./docs. subdomains don't resolve; needs re-verification
+                       # before implementation
+      debank.py        # DeBank's free "Open API" has been superseded by paid, unit-based
+                       # "DeBank Cloud" (AccessKey + purchased units) — no longer free
       whale_alert.py
       bitquery.py
       nansen.py
