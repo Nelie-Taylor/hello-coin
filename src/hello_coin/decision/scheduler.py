@@ -15,10 +15,12 @@ async def poll_once(
     timeframe: str,
     whale_storage: Any,
     technical_storage: Any,
+    liquidation_storage: Any,
     anthropic_client: Any,
     model: str,
     whale_lookback_hours: int,
     storage: DecisionStorage,
+    liquidation_proximity_pct: float = 0.10,
 ) -> int:
     try:
         decision = await compute_decision(
@@ -26,9 +28,11 @@ async def poll_once(
             timeframe=timeframe,
             whale_storage=whale_storage,
             technical_storage=technical_storage,
+            liquidation_storage=liquidation_storage,
             anthropic_client=anthropic_client,
             model=model,
             whale_lookback_hours=whale_lookback_hours,
+            liquidation_proximity_pct=liquidation_proximity_pct,
         )
     except Exception:
         logger.exception("%s: decision failed", symbol)
@@ -41,12 +45,14 @@ async def run_symbol_loop(
     timeframe: str,
     whale_storage: Any,
     technical_storage: Any,
+    liquidation_storage: Any,
     anthropic_client: Any,
     model: str,
     whale_lookback_hours: int,
     storage: DecisionStorage,
     stop_event: asyncio.Event,
     poll_interval_seconds: int,
+    liquidation_proximity_pct: float = 0.10,
 ) -> None:
     while not stop_event.is_set():
         inserted = await poll_once(
@@ -54,10 +60,12 @@ async def run_symbol_loop(
             timeframe=timeframe,
             whale_storage=whale_storage,
             technical_storage=technical_storage,
+            liquidation_storage=liquidation_storage,
             anthropic_client=anthropic_client,
             model=model,
             whale_lookback_hours=whale_lookback_hours,
             storage=storage,
+            liquidation_proximity_pct=liquidation_proximity_pct,
         )
         logger.info("%s: inserted %d new decision(s)", symbol, inserted)
         try:
@@ -71,11 +79,13 @@ async def run_forever(
     timeframe: str,
     whale_storage: Any,
     technical_storage: Any,
+    liquidation_storage: Any,
     anthropic_client: Any,
     model: str,
     whale_lookback_hours: int,
     storage: DecisionStorage,
     poll_interval_seconds: int = DEFAULT_POLL_INTERVAL_SECONDS,
+    liquidation_proximity_pct: float = 0.10,
 ) -> None:
     stop_event = asyncio.Event()
     await asyncio.gather(
@@ -85,12 +95,14 @@ async def run_forever(
                 timeframe=timeframe,
                 whale_storage=whale_storage,
                 technical_storage=technical_storage,
+                liquidation_storage=liquidation_storage,
                 anthropic_client=anthropic_client,
                 model=model,
                 whale_lookback_hours=whale_lookback_hours,
                 storage=storage,
                 stop_event=stop_event,
                 poll_interval_seconds=poll_interval_seconds,
+                liquidation_proximity_pct=liquidation_proximity_pct,
             )
             for symbol in symbols
         )
