@@ -45,6 +45,17 @@ uv run hello-coin
 3. Run the service continuously: `uv run hello-coin technical run` — writes to
    `data/technical.db`.
 
+## Decision engine
+
+1. Register an Anthropic API key at [console.anthropic.com](https://console.anthropic.com) and
+   set `ANTHROPIC_API_KEY` in `.env`. Every call costs money — there's no free tier.
+2. Compute one decision to sanity-check it: `uv run hello-coin decision test BTCUSDT`
+   (needs `data/whale.db` and `data/technical.db` to already have some rows — run `ingest run`/
+   `technical run` for a bit first, or the scores will both come back `None` and the LLM will
+   see "unavailable" for everything).
+3. Run the service continuously: `uv run hello-coin decision run` — writes to
+   `data/decisions.db`. Polls once per hour per symbol.
+
 ## Test
 
 ```

@@ -54,12 +54,29 @@ Python project managed with `uv` (src layout, package `hello_coin` under `src/he
 - `scheduler.py` — polls every symbol in `exchange_watch_symbols` every 15 minutes. No
   `Adapter`-style registry — there's one data source here, not many.
 
-`src/hello_coin/cli.py` is the entry point: `hello-coin ingest run` / `hello-coin technical run`
-start the two services, `hello-coin ingest test <source>` / `hello-coin technical test <symbol>`
-fetch or compute once and print the result.
+`src/hello_coin/decision/` is the AI decision engine (combines the two signals above), see
+`docs/superpowers/specs/2026-08-22-decision-engine-design.md`:
 
-No decision engine or trade execution code exists yet — those are separate, not-yet-planned
-pieces of the product intent below.
+- `models.py` — `Decision` (symbol, scores, action/confidence/reasoning, raw LLM response).
+- `whale_score.py` — aggregates recent `data/whale.db` rows into `[-1, 1]` (or `None`);
+  `base_asset()` handles the symbol-convention mismatch across whale sources (documented
+  limitation — see the spec).
+- `technical_score.py` — aggregates the latest `data/technical.db` snapshot into `[-1, 1]` (or
+  `None`) from RSI/MACD/Bollinger/EMA.
+- `llm.py` — calls the Anthropic API via tool use for a structured `action`/`confidence`/
+  `reasoning` decision. No real-network test — every call costs money.
+- `service.py` — combines both scores (0.7/0.3, never silently re-weighted when one is missing)
+  into the LLM prompt and parses the result into a `Decision`.
+- `storage.py` — SQLite (`data/decisions.db`, gitignored) with dedup on `(symbol, timestamp)`.
+- `scheduler.py` — polls every symbol in `exchange_watch_symbols` every 1 hour.
+
+`src/hello_coin/cli.py` is the entry point: `hello-coin ingest run` / `hello-coin technical run`
+/ `hello-coin decision run` start the three services; `hello-coin ingest test <source>` /
+`hello-coin technical test <symbol>` / `hello-coin decision test <symbol>` fetch, compute, or
+decide once and print the result.
+
+No trade execution code exists yet — placing real orders needs the target exchange(s) confirmed
+with the user first (see the "Tooling" section below), which hasn't happened.
 
 ## Product intent
 
