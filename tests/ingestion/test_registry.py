@@ -3,13 +3,28 @@ import logging
 from hello_coin.ingestion.config import Settings
 from hello_coin.ingestion.registry import build_adapters
 
+ALL_NAMES = [
+    "hyperliquid",
+    "binance",
+    "okx",
+    "bybit",
+    "bitget",
+    "etherscan_ethereum",
+    "etherscan_bsc",
+    "etherscan_polygon",
+]
+
 
 def test_build_adapters_includes_all_configured_sources():
-    settings = Settings(hyperliquid_watch_addresses=["0xabc"])
+    settings = Settings(
+        hyperliquid_watch_addresses=["0xabc"],
+        etherscan_api_key="test-key",
+        etherscan_watch_addresses=["0xabc"],
+    )
 
     adapters = build_adapters(settings)
 
-    assert [a.name for a in adapters] == ["hyperliquid", "binance", "okx", "bybit", "bitget"]
+    assert [a.name for a in adapters] == ALL_NAMES
 
 
 def test_build_adapters_skips_unconfigured_hyperliquid_but_keeps_exchange_adapters(caplog):
@@ -31,3 +46,14 @@ def test_build_adapters_skips_all_exchange_adapters_when_no_symbols(caplog):
     assert [a.name for a in adapters] == ["hyperliquid"]
     for exchange in ("binance", "okx", "bybit", "bitget"):
         assert exchange in caplog.text
+
+
+def test_build_adapters_skips_etherscan_chains_when_not_configured(caplog):
+    settings = Settings(hyperliquid_watch_addresses=["0xabc"])
+
+    with caplog.at_level(logging.WARNING):
+        adapters = build_adapters(settings)
+
+    assert "etherscan_ethereum" not in [a.name for a in adapters]
+    for chain in ("etherscan_ethereum", "etherscan_bsc", "etherscan_polygon"):
+        assert chain in caplog.text

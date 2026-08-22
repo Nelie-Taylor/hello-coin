@@ -4,6 +4,7 @@ from hello_coin.ingestion.adapters.base import Adapter
 from hello_coin.ingestion.adapters.binance import BinanceAdapter
 from hello_coin.ingestion.adapters.bitget import BitgetAdapter
 from hello_coin.ingestion.adapters.bybit import BybitAdapter
+from hello_coin.ingestion.adapters.etherscan import ETHERSCAN_CHAINS, EtherscanAdapter
 from hello_coin.ingestion.adapters.hyperliquid import HyperliquidAdapter
 from hello_coin.ingestion.adapters.okx import OkxAdapter
 from hello_coin.ingestion.config import Settings
@@ -22,6 +23,7 @@ def build_adapters(settings: Settings) -> list[Adapter]:
         OkxAdapter(settings),
         BybitAdapter(settings),
         BitgetAdapter(settings),
+        *(EtherscanAdapter(settings, chain_key=chain_key) for chain_key in ETHERSCAN_CHAINS),
     ]
 
     configured: list[Adapter] = []
