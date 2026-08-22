@@ -11,6 +11,10 @@ from hello_coin.ingestion.config import Settings
 from hello_coin.ingestion.registry import build_adapters
 from hello_coin.ingestion.scheduler import run_forever as run_ingestion_forever
 from hello_coin.ingestion.storage import WhaleStorage
+from hello_coin.liquidation.coinglass import is_configured as liquidation_is_configured
+from hello_coin.liquidation.scheduler import run_forever as run_liquidation_forever
+from hello_coin.liquidation.service import compute_snapshot as compute_liquidation_snapshot
+from hello_coin.liquidation.storage import LiquidationStorage
 from hello_coin.technical.scheduler import run_forever as run_technical_forever
 from hello_coin.technical.service import compute_snapshot
 from hello_coin.technical.storage import TechnicalStorage
@@ -18,6 +22,7 @@ from hello_coin.technical.storage import TechnicalStorage
 DEFAULT_WHALE_DB_PATH = "data/whale.db"
 DEFAULT_TECHNICAL_DB_PATH = "data/technical.db"
 DEFAULT_DECISION_DB_PATH = "data/decisions.db"
+DEFAULT_LIQUIDATION_DB_PATH = "data/liquidation.db"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -41,6 +46,18 @@ def build_parser() -> argparse.ArgumentParser:
         "test", help="Compute one snapshot for a symbol and print the result"
     )
     technical_test_parser.add_argument("symbol", help="Symbol, e.g. BTCUSDT")
+
+    liquidation_parser = subparsers.add_parser("liquidation", help="Liquidation heatmap commands")
+    liquidation_subparsers = liquidation_parser.add_subparsers(
+        dest="liquidation_command", required=True
+    )
+    liquidation_subparsers.add_parser(
+        "run", help="Run the liquidation-heatmap service continuously"
+    )
+    liquidation_test_parser = liquidation_subparsers.add_parser(
+        "test", help="Fetch one heatmap snapshot for a symbol and print the result"
+    )
+    liquidation_test_parser.add_argument("symbol", help="Symbol, e.g. BTCUSDT")
 
     decision_parser = subparsers.add_parser("decision", help="AI decision engine commands")
     decision_subparsers = decision_parser.add_subparsers(dest="decision_command", required=True)
@@ -92,6 +109,32 @@ async def _test_technical(symbol: str) -> None:
     print(snapshot)
 
 
+async def _run_liquidation() -> None:
+    settings = Settings()
+    if not liquidation_is_configured(settings):
+        print("COINGLASS_API_KEY is not set — the liquidation service is not configured.")
+        return
+    storage = LiquidationStorage(DEFAULT_LIQUIDATION_DB_PATH)
+    try:
+        await run_liquidation_forever(
+            settings.exchange_watch_symbols,
+            settings.coinglass_api_key,
+            storage,
+            poll_interval_seconds=settings.liquidation_poll_interval_seconds,
+        )
+    finally:
+        storage.close()
+
+
+async def _test_liquidation(symbol: str) -> None:
+    settings = Settings()
+    if not liquidation_is_configured(settings):
+        print("COINGLASS_API_KEY is not set — the liquidation service is not configured.")
+        return
+    snapshot = await compute_liquidation_snapshot(symbol, settings.coinglass_api_key)
+    print(snapshot)
+
+
 async def _run_decision() -> None:
     settings = Settings()
     if not settings.anthropic_api_key:
@@ -99,6 +142,7 @@ async def _run_decision() -> None:
         return
     whale_storage = WhaleStorage(DEFAULT_WHALE_DB_PATH)
     technical_storage = TechnicalStorage(DEFAULT_TECHNICAL_DB_PATH)
+    liquidation_storage = LiquidationStorage(DEFAULT_LIQUIDATION_DB_PATH)
     decision_storage = DecisionStorage(DEFAULT_DECISION_DB_PATH)
     try:
         async with AsyncAnthropic(api_key=settings.anthropic_api_key) as client:
@@ -107,14 +151,17 @@ async def _run_decision() -> None:
                 timeframe=settings.technical_timeframe,
                 whale_storage=whale_storage,
                 technical_storage=technical_storage,
+                liquidation_storage=liquidation_storage,
                 anthropic_client=client,
                 model=settings.anthropic_model,
                 whale_lookback_hours=settings.decision_whale_lookback_hours,
                 storage=decision_storage,
+                liquidation_proximity_pct=settings.liquidation_proximity_pct,
             )
     finally:
         whale_storage.close()
         technical_storage.close()
+        liquidation_storage.close()
         decision_storage.close()
 
 
@@ -125,6 +172,7 @@ async def _test_decision(symbol: str) -> None:
         return
     whale_storage = WhaleStorage(DEFAULT_WHALE_DB_PATH)
     technical_storage = TechnicalStorage(DEFAULT_TECHNICAL_DB_PATH)
+    liquidation_storage = LiquidationStorage(DEFAULT_LIQUIDATION_DB_PATH)
     try:
         async with AsyncAnthropic(api_key=settings.anthropic_api_key) as client:
             decision = await compute_decision(
@@ -132,14 +180,17 @@ async def _test_decision(symbol: str) -> None:
                 timeframe=settings.technical_timeframe,
                 whale_storage=whale_storage,
                 technical_storage=technical_storage,
+                liquidation_storage=liquidation_storage,
                 anthropic_client=client,
                 model=settings.anthropic_model,
                 whale_lookback_hours=settings.decision_whale_lookback_hours,
+                liquidation_proximity_pct=settings.liquidation_proximity_pct,
             )
         print(decision)
     finally:
         whale_storage.close()
         technical_storage.close()
+        liquidation_storage.close()
 
 
 def main() -> None:
@@ -155,6 +206,10 @@ def main() -> None:
         asyncio.run(_run_technical())
     elif args.command == "technical" and args.technical_command == "test":
         asyncio.run(_test_technical(args.symbol))
+    elif args.command == "liquidation" and args.liquidation_command == "run":
+        asyncio.run(_run_liquidation())
+    elif args.command == "liquidation" and args.liquidation_command == "test":
+        asyncio.run(_test_liquidation(args.symbol))
     elif args.command == "decision" and args.decision_command == "run":
         asyncio.run(_run_decision())
     elif args.command == "decision" and args.decision_command == "test":

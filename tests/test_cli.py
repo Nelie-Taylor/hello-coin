@@ -39,6 +39,25 @@ def test_technical_test_parses_symbol():
     assert args.symbol == "BTCUSDT"
 
 
+def test_liquidation_run_parses():
+    parser = build_parser()
+
+    args = parser.parse_args(["liquidation", "run"])
+
+    assert args.command == "liquidation"
+    assert args.liquidation_command == "run"
+
+
+def test_liquidation_test_parses_symbol():
+    parser = build_parser()
+
+    args = parser.parse_args(["liquidation", "test", "BTCUSDT"])
+
+    assert args.command == "liquidation"
+    assert args.liquidation_command == "test"
+    assert args.symbol == "BTCUSDT"
+
+
 def test_decision_run_parses():
     parser = build_parser()
 
