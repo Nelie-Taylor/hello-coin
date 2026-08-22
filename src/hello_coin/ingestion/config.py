@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-sonnet-5"
     decision_whale_lookback_hours: int = 24
 
+    coinglass_api_key: str | None = None
+    liquidation_proximity_pct: float = 0.10
+    liquidation_poll_interval_seconds: int = 900
+
     @field_validator(
         "hyperliquid_watch_addresses",
         "exchange_watch_symbols",

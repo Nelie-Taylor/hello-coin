@@ -139,3 +139,30 @@ def test_decision_settings_read_from_env(monkeypatch):
     assert settings.anthropic_api_key == "sk-ant-test"
     assert settings.anthropic_model == "claude-opus-5"
     assert settings.decision_whale_lookback_hours == 12
+
+
+def test_liquidation_settings_default(monkeypatch):
+    for var in (
+        "COINGLASS_API_KEY",
+        "LIQUIDATION_PROXIMITY_PCT",
+        "LIQUIDATION_POLL_INTERVAL_SECONDS",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+    settings = Settings(_env_file=None)
+
+    assert settings.coinglass_api_key is None
+    assert settings.liquidation_proximity_pct == 0.10
+    assert settings.liquidation_poll_interval_seconds == 900
+
+
+def test_liquidation_settings_read_from_env(monkeypatch):
+    monkeypatch.setenv("COINGLASS_API_KEY", "cg-test-key")
+    monkeypatch.setenv("LIQUIDATION_PROXIMITY_PCT", "0.05")
+    monkeypatch.setenv("LIQUIDATION_POLL_INTERVAL_SECONDS", "300")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.coinglass_api_key == "cg-test-key"
+    assert settings.liquidation_proximity_pct == 0.05
+    assert settings.liquidation_poll_interval_seconds == 300
