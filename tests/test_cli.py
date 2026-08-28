@@ -1,4 +1,63 @@
+import asyncio
+import sys
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
+import pytest
+
+from hello_coin import cli
 from hello_coin.cli import build_parser
+
+
+def test_run_parses():
+    parser = build_parser()
+
+    args = parser.parse_args(["run"])
+
+    assert args.command == "run"
+
+
+@pytest.mark.asyncio
+async def test_run_market_data_starts_ingestion_and_technical_together(monkeypatch):
+    ingestion_started = asyncio.Event()
+    technical_started = asyncio.Event()
+
+    async def run_ingestion():
+        ingestion_started.set()
+        await technical_started.wait()
+
+    async def run_technical():
+        technical_started.set()
+        await ingestion_started.wait()
+
+    monkeypatch.setattr(cli, "_run_ingest", run_ingestion)
+    monkeypatch.setattr(cli, "_run_technical", run_technical)
+
+    await asyncio.wait_for(cli._run_market_data(), timeout=0.1)
+
+
+def test_dashboard_parses():
+    args = build_parser().parse_args(["dashboard"])
+
+    assert args.command == "dashboard"
+
+
+def test_main_runs_dashboard_without_creating_ai_client(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["hello-coin", "dashboard"])
+    settings = SimpleNamespace(exchange_watch_symbols=["BTCUSDT"])
+    app = MagicMock()
+    monkeypatch.setattr(cli, "Settings", lambda: settings)
+    monkeypatch.setattr(cli, "build_adapters", lambda configured: [])
+    monkeypatch.setattr(cli, "DashboardApp", lambda settings, adapters: app)
+
+    def fail_if_created(*args, **kwargs):
+        raise AssertionError("dashboard must not create an AI client")
+
+    monkeypatch.setattr(cli, "AsyncAnthropic", fail_if_created)
+
+    cli.main()
+
+    app.run.assert_called_once_with()
 
 
 def test_ingest_run_parses():

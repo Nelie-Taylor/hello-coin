@@ -4,6 +4,7 @@ import logging
 
 from anthropic import AsyncAnthropic
 
+from hello_coin.dashboard.app import DashboardApp
 from hello_coin.decision.scheduler import run_forever as run_decision_forever
 from hello_coin.decision.service import compute_decision
 from hello_coin.decision.storage import DecisionStorage
@@ -28,6 +29,11 @@ DEFAULT_LIQUIDATION_DB_PATH = "data/liquidation.db"
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="hello-coin")
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    subparsers.add_parser(
+        "run", help="Run whale ingestion and technical indicators continuously"
+    )
+    subparsers.add_parser("dashboard", help="Run the terminal market dashboard")
 
     ingest_parser = subparsers.add_parser("ingest", help="Whale data ingestion commands")
     ingest_subparsers = ingest_parser.add_subparsers(dest="ingest_command", required=True)
@@ -101,6 +107,15 @@ async def _run_technical() -> None:
         )
     finally:
         storage.close()
+
+
+async def _run_market_data() -> None:
+    await asyncio.gather(_run_ingest(), _run_technical())
+
+
+def _run_dashboard() -> None:
+    settings = Settings()
+    DashboardApp(settings=settings, adapters=build_adapters(settings)).run()
 
 
 async def _test_technical(symbol: str) -> None:
@@ -198,7 +213,11 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    if args.command == "ingest" and args.ingest_command == "run":
+    if args.command == "run":
+        asyncio.run(_run_market_data())
+    elif args.command == "dashboard":
+        _run_dashboard()
+    elif args.command == "ingest" and args.ingest_command == "run":
         asyncio.run(_run_ingest())
     elif args.command == "ingest" and args.ingest_command == "test":
         asyncio.run(_test_adapter(args.source))

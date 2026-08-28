@@ -8,6 +8,7 @@ wheels/
 
 # Virtual environments
 .venv
+.superpowers/
 
 # Local secrets and data
 .env

@@ -56,6 +56,13 @@ uv run hello-coin
 3. Run the service continuously: `uv run hello-coin decision run` — writes to
    `data/decisions.db`. Polls once per hour per symbol.
 
+## Terminal dashboard
+
+Run `uv run hello-coin dashboard` to start local whale ingestion, technical collection, and a
+terminal dashboard. The display refreshes every 60 seconds and shows a deterministic market bias
+from whale (70%) and technical (30%) scores. It never sends orders and does not invoke the
+Anthropic decision engine.
+
 ## Test
 
 ```
