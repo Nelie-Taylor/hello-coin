@@ -31,6 +31,30 @@ def _parse_fill(address: str, fill: dict[str, Any]) -> WhaleEvent:
     )
 
 
+def _parse_position(
+    address: str, asset_position: dict[str, Any], timestamp: datetime
+) -> WhaleEvent | None:
+    position = asset_position["position"]
+    size = float(position["szi"])
+    if size == 0:
+        return None
+    leverage = position.get("leverage")
+    leverage_value = leverage.get("value") if isinstance(leverage, dict) else None
+    return WhaleEvent(
+        source="hyperliquid",
+        timestamp=timestamp,
+        chain_or_exchange="hyperliquid",
+        symbol=position["coin"],
+        event_type="position",
+        side="buy" if size > 0 else "sell",
+        amount=abs(size),
+        amount_usd=abs(float(position["positionValue"])),
+        wallet_address=address,
+        dedup_key=f"position:{address}:{position['coin']}:{size}:{leverage_value}",
+        raw=position,
+    )
+
+
 class HyperliquidAdapter(Adapter):
     """Tracks fills for a configured watchlist of Hyperliquid wallet addresses.
 
@@ -63,6 +87,16 @@ class HyperliquidAdapter(Adapter):
                 fills = response.json()
                 for fill in fills:
                     events.append(_parse_fill(address, fill))
+                positions_response = await client.post(
+                    HYPERLIQUID_INFO_URL,
+                    json={"type": "clearinghouseState", "user": address},
+                )
+                positions_response.raise_for_status()
+                now = datetime.now(tz=UTC)
+                for asset_position in positions_response.json().get("assetPositions", []):
+                    position = _parse_position(address, asset_position, now)
+                    if position is not None:
+                        events.append(position)
                 if fills:
                     self._last_seen_ms[address] = max(fill["time"] for fill in fills) + 1
         return events

@@ -197,6 +197,8 @@ class DashboardApp(App[None]):
         if not isinstance(raw, dict):
             return "N/A"
         leverage = raw.get("leverage")
+        if isinstance(leverage, dict):
+            leverage = leverage.get("value")
         if isinstance(leverage, int | float):
             return f"{leverage:g}x"
         return "N/A"

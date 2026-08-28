@@ -41,7 +41,7 @@ class _ActivityDashboardService(_DashboardService):
                     "event_type": "fill",
                     "side": "buy",
                     "amount_usd": 100_000.0,
-                    "raw": '{"leverage": 7}',
+                    "raw": '{"leverage": {"type": "cross", "value": 7}}',
                 },
                 {
                     "timestamp": "2026-08-29T00:00:01+00:00",
