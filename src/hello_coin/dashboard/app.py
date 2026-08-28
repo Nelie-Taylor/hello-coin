@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar
@@ -149,10 +150,13 @@ class DashboardApp(App[None]):
         event_lines = ["[b]Whale activity[/b]"]
         for event in snapshot.whale_events:
             value = self._format_number(event.get("amount_usd"))
+            direction = self._format_direction(event.get("side"))
+            leverage = self._format_leverage(event.get("raw"))
             event_lines.append(
                 f"{event['timestamp']} · {event['source']} · {event['symbol']} · "
                 f"{event['event_type']} · ${value}"
             )
+            event_lines.append(f"  {direction} \N{MIDDLE DOT} Leverage: {leverage}")
         if not snapshot.whale_events:
             event_lines.append("No persisted whale events for this symbol.")
         self.query_one("#whale-activity", Static).update("\n".join(event_lines))
@@ -174,6 +178,28 @@ class DashboardApp(App[None]):
         if isinstance(value, int | float):
             return f"{value:,.4f}"
         return str(value)
+
+    @staticmethod
+    def _format_direction(side: object) -> str:
+        if side == "buy":
+            return "LONG (BUY)"
+        if side == "sell":
+            return "SHORT (SELL)"
+        return "N/A"
+
+    @staticmethod
+    def _format_leverage(raw: object) -> str:
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except json.JSONDecodeError:
+                return "N/A"
+        if not isinstance(raw, dict):
+            return "N/A"
+        leverage = raw.get("leverage")
+        if isinstance(leverage, int | float):
+            return f"{leverage:g}x"
+        return "N/A"
 
     @work(exit_on_error=False)
     async def run_ingestion_worker(self) -> None:

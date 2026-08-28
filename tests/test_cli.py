@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -58,6 +59,29 @@ def test_main_runs_dashboard_without_creating_ai_client(monkeypatch):
     cli.main()
 
     app.run.assert_called_once_with()
+
+
+def test_dashboard_logging_writes_to_file_without_terminal_handler(tmp_path, monkeypatch):
+    root_logger = logging.getLogger()
+    previous_handlers = root_logger.handlers[:]
+    previous_level = root_logger.level
+    log_path = tmp_path / "dashboard.log"
+    monkeypatch.setattr(cli, "DASHBOARD_LOG_PATH", log_path)
+
+    try:
+        cli.configure_dashboard_logging()
+        logging.getLogger("hello_coin.dashboard_test").warning("dashboard log record")
+        for handler in root_logger.handlers:
+            handler.flush()
+
+        assert "dashboard log record" in log_path.read_text(encoding="utf-8")
+        assert all(isinstance(handler, logging.FileHandler) for handler in root_logger.handlers)
+    finally:
+        for handler in root_logger.handlers[:]:
+            root_logger.removeHandler(handler)
+            handler.close()
+        root_logger.handlers.extend(previous_handlers)
+        root_logger.setLevel(previous_level)
 
 
 def test_ingest_run_parses():

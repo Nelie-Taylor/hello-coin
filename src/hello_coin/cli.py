@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import logging
+from pathlib import Path
 
 from anthropic import AsyncAnthropic
 
@@ -24,6 +25,17 @@ DEFAULT_WHALE_DB_PATH = "data/whale.db"
 DEFAULT_TECHNICAL_DB_PATH = "data/technical.db"
 DEFAULT_DECISION_DB_PATH = "data/decisions.db"
 DEFAULT_LIQUIDATION_DB_PATH = "data/liquidation.db"
+DASHBOARD_LOG_PATH = Path("data/dashboard.log")
+
+
+def configure_dashboard_logging() -> None:
+    DASHBOARD_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        handlers=[logging.FileHandler(DASHBOARD_LOG_PATH, encoding="utf-8")],
+        force=True,
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -209,9 +221,12 @@ async def _test_decision(symbol: str) -> None:
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = build_parser()
     args = parser.parse_args()
+    if args.command == "dashboard":
+        configure_dashboard_logging()
+    else:
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
     if args.command == "run":
         asyncio.run(_run_market_data())
