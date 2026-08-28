@@ -63,6 +63,20 @@ terminal dashboard. The display refreshes every 60 seconds and shows a determini
 from whale (70%) and technical (30%) scores. It never sends orders and does not invoke the
 Anthropic decision engine.
 
+To enable Hyperdash per-coin whale discovery, set these optional values in `.env`:
+
+```
+HYPERDASH_API_TOKEN=your-token-here
+HYPERDASH_WATCH_COINS=LINK,SOL,SUI,NEAR,HYPE
+HYPERDASH_DELTA_TIMEFRAME=FIFTEEN_MINUTES
+HYPERDASH_MIN_DELTA_USD=50000
+HYPERDASH_MIN_POSITION_USD=50000
+```
+
+The dashboard shows one current-position table per configured coin, including LONG/SHORT,
+position size, entry/liquidation, unrealized PnL, and leverage. Without a token, Hyperdash is
+shown as `NOT CONFIGURED`; the rest of the dashboard continues to run.
+
 ## Test
 
 ```

@@ -5,7 +5,7 @@ from typing import Any, ClassVar
 
 from textual import events, work
 from textual.app import App, ComposeResult
-from textual.containers import Grid
+from textual.containers import Grid, ScrollableContainer
 from textual.widgets import Footer, Header, Static
 
 from hello_coin.dashboard.models import DashboardSnapshot
@@ -44,6 +44,16 @@ class DashboardApp(App[None]):
     #whale-activity {
         column-span: 2;
     }
+
+    #coin-positions-scroll {
+        column-span: 3;
+        height: 18;
+        border: round $primary;
+    }
+
+    #coin-positions {
+        padding: 1;
+    }
     """
 
     def __init__(
@@ -65,6 +75,7 @@ class DashboardApp(App[None]):
             TechnicalStorage(DEFAULT_TECHNICAL_DB_PATH),
             timeframe=settings.technical_timeframe,
             lookback_hours=settings.decision_whale_lookback_hours,
+            hyperdash_watch_coins=settings.hyperdash_watch_coins,
         )
         self.selected_symbol = settings.exchange_watch_symbols[0]
 
@@ -76,6 +87,8 @@ class DashboardApp(App[None]):
             yield Static(id="technical")
             yield Static(id="market-bias")
             yield Static(id="whale-activity")
+            with ScrollableContainer(id="coin-positions-scroll"):
+                yield Static(id="coin-positions")
             yield Static(id="system-status")
         yield Footer()
 
@@ -160,6 +173,7 @@ class DashboardApp(App[None]):
         if not snapshot.whale_events:
             event_lines.append("No persisted whale events for this symbol.")
         self.query_one("#whale-activity", Static).update("\n".join(event_lines))
+        self._render_coin_positions(snapshot)
         status_lines = ["[b]System status[/b]"]
         if snapshot.source_statuses:
             status_lines.extend(
@@ -170,6 +184,50 @@ class DashboardApp(App[None]):
             status_lines.append("NOT CONFIGURED: no ingestion source enabled")
         status_lines.append("Informational only — no orders are sent.")
         self.query_one("#system-status", Static).update("\n".join(status_lines))
+
+    def _render_coin_positions(self, snapshot: DashboardSnapshot) -> None:
+        lines = ["[b]Hyperdash current positions[/b]"]
+        headers = "Wallet | Side | Size | Position USD | Leverage | Entry | Liquidation | uPnL | Age"
+        for table in snapshot.coin_positions:
+            lines.extend((f"\n[b]{table.coin}[/b] · {table.status.state}", headers))
+            if not table.rows:
+                lines.append(table.status.detail or "No fresh positions.")
+                continue
+            for row in table.rows:
+                raw = row.get("raw") if isinstance(row.get("raw"), dict) else {}
+                side = "LONG" if row.get("side") == "buy" else "SHORT" if row.get("side") == "sell" else "N/A"
+                lines.append(" | ".join((
+                    self._format_wallet(row.get("wallet_address")), side,
+                    self._format_number(row.get("amount")), self._format_number(row.get("amount_usd")),
+                    self._format_position_leverage(raw), self._format_number(raw.get("entryPx")),
+                    self._format_number(raw.get("liquidationPx")), self._format_number(raw.get("unrealizedPnl")),
+                    self._format_age(row.get("timestamp"), snapshot.refreshed_at),
+                )))
+        self.query_one("#coin-positions", Static).update("\n".join(lines))
+
+    @staticmethod
+    def _format_wallet(value: object) -> str:
+        text = str(value or "N/A")
+        return text if len(text) <= 14 else f"{text[:7]}…{text[-5:]}"
+
+    @staticmethod
+    def _format_age(value: object, now: datetime) -> str:
+        try:
+            timestamp = datetime.fromisoformat(str(value))
+            return f"{max(0, int((now - timestamp).total_seconds()))}s"
+        except (TypeError, ValueError):
+            return "N/A"
+
+    @staticmethod
+    def _format_position_leverage(raw: dict[str, Any]) -> str:
+        leverage = raw.get("leverage")
+        if not isinstance(leverage, dict):
+            return "N/A"
+        value = leverage.get("value")
+        if not isinstance(value, int | float):
+            return "N/A"
+        kind = leverage.get("type")
+        return f"{kind} · {value:g}x" if kind else f"{value:g}x"
 
     @staticmethod
     def _format_number(value: object) -> str:

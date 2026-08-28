@@ -166,3 +166,38 @@ def test_liquidation_settings_read_from_env(monkeypatch):
     assert settings.coinglass_api_key == "cg-test-key"
     assert settings.liquidation_proximity_pct == 0.05
     assert settings.liquidation_poll_interval_seconds == 300
+
+
+def test_hyperdash_settings_defaults(monkeypatch):
+    for var in (
+        "HYPERDASH_API_TOKEN",
+        "HYPERDASH_WATCH_COINS",
+        "HYPERDASH_DELTA_TIMEFRAME",
+        "HYPERDASH_MIN_DELTA_USD",
+        "HYPERDASH_MIN_POSITION_USD",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+    settings = Settings(_env_file=None)
+
+    assert settings.hyperdash_api_token is None
+    assert settings.hyperdash_watch_coins == ["LINK", "SOL", "SUI", "NEAR", "HYPE"]
+    assert settings.hyperdash_delta_timeframe == "FIFTEEN_MINUTES"
+    assert settings.hyperdash_min_delta_usd == 50_000
+    assert settings.hyperdash_min_position_usd == 50_000
+
+
+def test_hyperdash_settings_parse_environment(monkeypatch):
+    monkeypatch.setenv("HYPERDASH_API_TOKEN", "test-token")
+    monkeypatch.setenv("HYPERDASH_WATCH_COINS", "BTC, ETH ,SOL")
+    monkeypatch.setenv("HYPERDASH_DELTA_TIMEFRAME", "ONE_HOUR")
+    monkeypatch.setenv("HYPERDASH_MIN_DELTA_USD", "100000")
+    monkeypatch.setenv("HYPERDASH_MIN_POSITION_USD", "250000")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.hyperdash_api_token == "test-token"
+    assert settings.hyperdash_watch_coins == ["BTC", "ETH", "SOL"]
+    assert settings.hyperdash_delta_timeframe == "ONE_HOUR"
+    assert settings.hyperdash_min_delta_usd == 100_000
+    assert settings.hyperdash_min_position_usd == 250_000

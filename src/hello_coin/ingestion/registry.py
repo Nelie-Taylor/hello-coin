@@ -8,6 +8,7 @@ from hello_coin.ingestion.adapters.bybit import BybitAdapter
 from hello_coin.ingestion.adapters.cryptoquant import CryptoQuantAdapter
 from hello_coin.ingestion.adapters.debank import DebankAdapter
 from hello_coin.ingestion.adapters.etherscan import ETHERSCAN_CHAINS, EtherscanAdapter
+from hello_coin.ingestion.adapters.hyperdash import HyperdashAdapter
 from hello_coin.ingestion.adapters.hyperliquid import HyperliquidAdapter
 from hello_coin.ingestion.adapters.nansen import NansenAdapter
 from hello_coin.ingestion.adapters.okx import OkxAdapter
@@ -23,6 +24,7 @@ def build_adapters(settings: Settings) -> list[Adapter]:
     here as they're implemented."""
 
     candidates: list[Adapter] = [
+        HyperdashAdapter(settings),
         HyperliquidAdapter(settings),
         BinanceAdapter(settings),
         OkxAdapter(settings),

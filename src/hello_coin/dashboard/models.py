@@ -22,6 +22,13 @@ class SourceStatus:
 
 
 @dataclass(frozen=True)
+class CoinPositionTable:
+    coin: str
+    rows: tuple[dict[str, Any], ...]
+    status: SourceStatus
+
+
+@dataclass(frozen=True)
 class DashboardSnapshot:
     symbol: str
     technical: dict[str, Any] | None
@@ -29,6 +36,7 @@ class DashboardSnapshot:
     bias: MarketBias
     source_statuses: tuple[SourceStatus, ...]
     refreshed_at: datetime
+    coin_positions: tuple[CoinPositionTable, ...] = ()
 
 
 def compute_market_bias(whale_score: float | None, technical_score: float | None) -> MarketBias:

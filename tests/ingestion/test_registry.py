@@ -51,6 +51,18 @@ def test_build_adapters_includes_all_configured_sources():
     assert [a.name for a in adapters] == ALL_NAMES
 
 
+def test_build_adapters_includes_configured_hyperdash():
+    settings = Settings(
+        hyperdash_api_token="token",
+        hyperdash_watch_coins=["LINK"],
+        hyperliquid_watch_addresses=[],
+        exchange_watch_symbols=[],
+        **UNCONFIGURED_CREDENTIALS,
+    )
+
+    assert [a.name for a in build_adapters(settings)] == ["hyperdash"]
+
+
 def test_build_adapters_skips_unconfigured_hyperliquid_but_keeps_exchange_adapters(caplog):
     settings = Settings(hyperliquid_watch_addresses=[], **UNCONFIGURED_CREDENTIALS)
 

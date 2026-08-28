@@ -13,6 +13,11 @@ class Settings(BaseSettings):
 
     hyperliquid_watch_addresses: Annotated[list[str], NoDecode] = []
     exchange_watch_symbols: Annotated[list[str], NoDecode] = ["BTCUSDT"]
+    hyperdash_api_token: str | None = None
+    hyperdash_watch_coins: Annotated[list[str], NoDecode] = ["LINK", "SOL", "SUI", "NEAR", "HYPE"]
+    hyperdash_delta_timeframe: str = "FIFTEEN_MINUTES"
+    hyperdash_min_delta_usd: int = 50_000
+    hyperdash_min_position_usd: int = 50_000
     etherscan_api_key: str | None = None
     etherscan_watch_addresses: Annotated[list[str], NoDecode] = []
 
@@ -39,6 +44,7 @@ class Settings(BaseSettings):
     @field_validator(
         "hyperliquid_watch_addresses",
         "exchange_watch_symbols",
+        "hyperdash_watch_coins",
         "etherscan_watch_addresses",
         "debank_watch_addresses",
         "nansen_watch_addresses",

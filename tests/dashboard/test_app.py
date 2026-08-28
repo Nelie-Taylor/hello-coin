@@ -3,7 +3,12 @@ from datetime import datetime
 import pytest
 
 from hello_coin.dashboard.app import DashboardApp
-from hello_coin.dashboard.models import DashboardSnapshot, MarketBias
+from hello_coin.dashboard.models import (
+    CoinPositionTable,
+    DashboardSnapshot,
+    MarketBias,
+    SourceStatus,
+)
 from hello_coin.ingestion.config import Settings
 
 
@@ -123,3 +128,30 @@ async def test_dashboard_renders_direction_and_available_leverage_for_whale_even
     assert "LONG (BUY)" in activity
     assert "Leverage: 7x" in activity
     assert "Leverage: N/A" in activity
+
+
+class _CoinDashboardService(_DashboardService):
+    def load_snapshot(self, symbol: str, sources: list[object], now: datetime) -> DashboardSnapshot:
+        return DashboardSnapshot(
+            symbol=symbol, technical=None, whale_events=(),
+            bias=MarketBias(None, None, None, "INSUFFICIENT DATA"), source_statuses=(), refreshed_at=now,
+            coin_positions=(
+                CoinPositionTable("LINK", ({"wallet_address": "0x1234567890abcdef", "side": "buy", "amount": 2.0, "amount_usd": 80_000.0, "timestamp": now.isoformat(), "raw": {"leverage": {"type": "cross", "value": 7}, "entryPx": "10", "liquidationPx": "5", "unrealizedPnl": "100"}},), SourceStatus("hyperdash", "LIVE", now, "current position(s)")),
+                CoinPositionTable("SOL", (), SourceStatus("hyperdash", "STALE", now, "no fresh positions")),
+                CoinPositionTable("SUI", (), SourceStatus("hyperdash", "ERROR", now, "request failed")),
+                CoinPositionTable("NEAR", (), SourceStatus("hyperdash", "NOT CONFIGURED", None, "token missing")),
+                CoinPositionTable("HYPE", (), SourceStatus("hyperdash", "STALE", now, "no fresh positions")),
+            ),
+        )
+
+
+@pytest.mark.asyncio
+async def test_dashboard_renders_one_position_table_for_each_coin():
+    app = DashboardApp(_settings("BTCUSDT"), adapters=[], service=_CoinDashboardService(), start_workers=False)
+    async with app.run_test():
+        content = app.query_one("#coin-positions").content
+
+    assert all(coin in content for coin in ("LINK", "SOL", "SUI", "NEAR", "HYPE"))
+    assert "Wallet" in content and "Position USD" in content and "Leverage" in content
+    assert "LONG" in content and "cross · 7x" in content
+    assert "request failed" in content and "NOT CONFIGURED" in content

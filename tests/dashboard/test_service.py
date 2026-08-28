@@ -70,6 +70,58 @@ def _service() -> tuple[DashboardService, WhaleStorage, TechnicalStorage]:
     )
 
 
+def test_load_snapshot_groups_fresh_hyperdash_positions_per_coin():
+    service, whale_storage, _ = _service()
+    service = DashboardService(
+        whale_storage,
+        TechnicalStorage(":memory:"),
+        timeframe="1h",
+        lookback_hours=24,
+        hyperdash_watch_coins=["LINK", "SOL", "SUI", "NEAR", "HYPE"],
+    )
+    whale_storage.insert_events([
+        WhaleEvent(
+            source="hyperdash", timestamp=NOW, chain_or_exchange="hyperliquid", symbol="LINK",
+            event_type="position", side="buy", amount=2, amount_usd=80_000,
+            wallet_address="0x1234567890abcdef", dedup_key="p1",
+            raw={"entryPx": "10", "leverage": {"type": "cross", "value": 7}},
+        ),
+        _whale_event(),
+    ])
+
+    snapshot = service.load_snapshot("BTCUSDT", [], now=NOW)
+
+    assert [table.coin for table in snapshot.coin_positions] == ["LINK", "SOL", "SUI", "NEAR", "HYPE"]
+    assert snapshot.coin_positions[0].rows[0]["wallet_address"] == "0x1234567890abcdef"
+    assert snapshot.coin_positions[0].rows[0]["raw"]["leverage"]["value"] == 7
+    assert snapshot.coin_positions[1].rows == ()
+
+
+def test_load_snapshot_hides_stale_hyperdash_positions():
+    service, whale_storage, _ = _service()
+    service = DashboardService(
+        whale_storage, TechnicalStorage(":memory:"), timeframe="1h", lookback_hours=24,
+        hyperdash_watch_coins=["LINK"], position_freshness_seconds=120,
+    )
+    whale_storage.insert_events([
+        WhaleEvent(
+            source="hyperdash", timestamp=NOW - timedelta(seconds=121), chain_or_exchange="hyperliquid",
+            symbol="LINK", event_type="position", side="sell", amount=1, amount_usd=60_000,
+            wallet_address="0xabc", dedup_key="stale", raw={},
+        )
+    ])
+
+    source = SimpleNamespace(
+        name="hyperdash", poll_interval_seconds=60,
+        disabled=False, last_error=None, last_success_at=NOW,
+        coin_statuses={"LINK": {"state": "LIVE", "detail": "0 qualifying wallet(s)", "last_success_at": NOW}},
+    )
+    snapshot = service.load_snapshot("BTCUSDT", [source], now=NOW)
+
+    assert snapshot.coin_positions[0].rows == ()
+    assert snapshot.coin_positions[0].status.state == "STALE"
+
+
 def test_load_snapshot_includes_scores_recent_events_and_live_source():
     service, whale_storage, technical_storage = _service()
     whale_storage.insert_events([_whale_event()])

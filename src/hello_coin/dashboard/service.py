@@ -1,7 +1,13 @@
+import json
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 
-from hello_coin.dashboard.models import DashboardSnapshot, SourceStatus, compute_market_bias
+from hello_coin.dashboard.models import (
+    CoinPositionTable,
+    DashboardSnapshot,
+    SourceStatus,
+    compute_market_bias,
+)
 from hello_coin.decision.technical_score import compute_technical_score
 from hello_coin.decision.whale_score import base_asset, compute_whale_score
 from hello_coin.ingestion.adapters.base import Adapter
@@ -17,11 +23,15 @@ class DashboardService:
         *,
         timeframe: str,
         lookback_hours: int,
+        hyperdash_watch_coins: Sequence[str] = (),
+        position_freshness_seconds: int | None = None,
     ) -> None:
         self._whale_storage = whale_storage
         self._technical_storage = technical_storage
         self._timeframe = timeframe
         self._lookback_hours = lookback_hours
+        self._hyperdash_watch_coins = tuple(coin.upper() for coin in hyperdash_watch_coins)
+        self._position_freshness_seconds = position_freshness_seconds
 
     def close(self) -> None:
         self._whale_storage.close()
@@ -38,6 +48,7 @@ class DashboardService:
         technical = self._technical_storage.latest_snapshot(symbol, self._timeframe)
         technical_score = compute_technical_score(technical) if technical is not None else None
         bias = compute_market_bias(compute_whale_score(events, metrics), technical_score)
+        coin_positions = self._load_coin_positions(sources, now)
         return DashboardSnapshot(
             symbol=symbol,
             technical=technical,
@@ -45,7 +56,49 @@ class DashboardService:
             bias=bias,
             source_statuses=tuple(self._source_status(source, now) for source in sources),
             refreshed_at=now,
+            coin_positions=coin_positions,
         )
+
+    def _load_coin_positions(
+        self, sources: Sequence[Adapter], now: datetime
+    ) -> tuple[CoinPositionTable, ...]:
+        if not self._hyperdash_watch_coins:
+            return ()
+        hyperdash = next((source for source in sources if source.name == "hyperdash"), None)
+        freshness = self._position_freshness_seconds
+        if freshness is None:
+            freshness = min((hyperdash.poll_interval_seconds * 2 if hyperdash else 120), 300)
+        since = now - timedelta(seconds=freshness)
+        tables: list[CoinPositionTable] = []
+        for coin in self._hyperdash_watch_coins:
+            rows: list[dict] = []
+            for row in self._whale_storage.recent_events(coin, since):
+                if row["source"] != "hyperdash" or row["event_type"] != "position":
+                    continue
+                try:
+                    row["raw"] = json.loads(row["raw"])
+                except (TypeError, json.JSONDecodeError):
+                    row["raw"] = {}
+                rows.append(row)
+            status = self._coin_status(coin, hyperdash, now, bool(rows))
+            tables.append(CoinPositionTable(coin=coin, rows=tuple(rows), status=status))
+        return tuple(tables)
+
+    @staticmethod
+    def _coin_status(
+        coin: str, hyperdash: Adapter | None, now: datetime, has_rows: bool
+    ) -> SourceStatus:
+        if hyperdash is None:
+            return SourceStatus("hyperdash", "NOT CONFIGURED", None, "Hyperdash adapter unavailable")
+        raw_status = getattr(hyperdash, "coin_statuses", {}).get(coin, {})
+        state = raw_status.get("state")
+        detail = raw_status.get("detail")
+        last_success = raw_status.get("last_success_at")
+        if state in {"ERROR", "NOT CONFIGURED"}:
+            return SourceStatus("hyperdash", state, last_success, str(detail or state))
+        if has_rows:
+            return SourceStatus("hyperdash", "LIVE", last_success or now, str(detail or "current position(s)"))
+        return SourceStatus("hyperdash", "STALE", last_success, str(detail or "no fresh positions"))
 
     @staticmethod
     def _source_status(source: Adapter, now: datetime) -> SourceStatus:
