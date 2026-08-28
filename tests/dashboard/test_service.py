@@ -1,5 +1,8 @@
+import sqlite3
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+
+import pytest
 
 from hello_coin.dashboard.service import DashboardService
 from hello_coin.ingestion.models import WhaleEvent
@@ -105,3 +108,14 @@ def test_load_snapshot_keeps_missing_score_as_insufficient_data():
     snapshot = service.load_snapshot("BTCUSDT", [], now=NOW)
 
     assert snapshot.bias.label == "INSUFFICIENT DATA"
+
+
+def test_close_closes_both_storage_connections():
+    service, whale_storage, technical_storage = _service()
+
+    service.close()
+
+    with pytest.raises(sqlite3.ProgrammingError):
+        whale_storage.count_events()
+    with pytest.raises(sqlite3.ProgrammingError):
+        technical_storage.count_snapshots()

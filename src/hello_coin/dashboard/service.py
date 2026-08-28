@@ -23,6 +23,10 @@ class DashboardService:
         self._timeframe = timeframe
         self._lookback_hours = lookback_hours
 
+    def close(self) -> None:
+        self._whale_storage.close()
+        self._technical_storage.close()
+
     def load_snapshot(
         self, symbol: str, sources: Sequence[Adapter], now: datetime
     ) -> DashboardSnapshot:
