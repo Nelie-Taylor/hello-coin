@@ -1,5 +1,5 @@
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar
 
 from textual import events, work
@@ -58,6 +58,7 @@ class DashboardApp(App[None]):
         self._adapters = adapters
         self._start_workers = start_workers
         self._owns_service = service is None
+        self._next_refresh_at = datetime.now(tz=UTC)
         self._service = service or DashboardService(
             WhaleStorage(DEFAULT_WHALE_DB_PATH),
             TechnicalStorage(DEFAULT_TECHNICAL_DB_PATH),
@@ -68,6 +69,7 @@ class DashboardApp(App[None]):
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
+        yield Static(id="refresh-status")
         with Grid():
             yield Static(id="market-overview")
             yield Static(id="technical")
@@ -79,6 +81,7 @@ class DashboardApp(App[None]):
     def on_mount(self) -> None:
         self.refresh_dashboard()
         self.set_interval(60, self.refresh_dashboard, name="dashboard-refresh")
+        self.set_interval(1, self._update_refresh_status, name="dashboard-countdown")
         if self._start_workers:
             self.run_ingestion_worker()
             self.run_technical_worker()
@@ -102,6 +105,8 @@ class DashboardApp(App[None]):
         self.refresh_dashboard()
 
     def refresh_dashboard(self) -> None:
+        self._next_refresh_at = datetime.now(tz=UTC) + timedelta(seconds=60)
+        self._update_refresh_status()
         try:
             snapshot = self._service.load_snapshot(
                 self.selected_symbol,
@@ -113,6 +118,14 @@ class DashboardApp(App[None]):
             self.query_one("#system-status", Static).update(f"Refresh error: {error}")
             return
         self._render_snapshot(snapshot)
+
+    def _update_refresh_status(self) -> None:
+        remaining_seconds = max(
+            0, round((self._next_refresh_at - datetime.now(tz=UTC)).total_seconds())
+        )
+        self.query_one("#refresh-status", Static).update(
+            f"LIVE · Next refresh: {remaining_seconds}s"
+        )
 
     def _render_snapshot(self, snapshot: DashboardSnapshot) -> None:
         technical = snapshot.technical

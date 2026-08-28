@@ -65,3 +65,12 @@ async def test_dashboard_renders_insufficient_data_without_starting_workers():
         assert "INSUFFICIENT DATA" in app.query_one("#market-bias").content
 
     assert service.closed is False
+
+
+@pytest.mark.asyncio
+async def test_dashboard_displays_countdown_to_next_refresh():
+    service = _DashboardService()
+    app = DashboardApp(_settings("BTCUSDT"), adapters=[], service=service, start_workers=False)
+
+    async with app.run_test():
+        assert "Next refresh:" in app.query_one("#refresh-status").content
