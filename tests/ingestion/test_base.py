@@ -25,6 +25,21 @@ class _CountingFailingAdapter(Adapter):
         raise RuntimeError("boom")
 
 
+class _FlakyAdapter(Adapter):
+    name = "flaky"
+    poll_interval_seconds = 1
+
+    def __init__(self):
+        super().__init__()
+        self._should_fail = True
+
+    async def fetch(self):
+        if self._should_fail:
+            self._should_fail = False
+            raise RuntimeError("offline")
+        return []
+
+
 @pytest.mark.asyncio
 async def test_safe_fetch_returns_result_on_success():
     adapter = _AlwaysSucceedsAdapter()
@@ -48,6 +63,21 @@ async def test_safe_fetch_disables_after_max_consecutive_failures():
 
     await adapter.safe_fetch()
     assert adapter.fetch_calls == 3  # fetch() is not called again once disabled
+
+
+@pytest.mark.asyncio
+async def test_safe_fetch_records_success_and_clears_previous_error():
+    adapter = _FlakyAdapter()
+
+    await adapter.safe_fetch()
+
+    assert adapter.last_success_at is None
+    assert adapter.last_error == "offline"
+
+    await adapter.safe_fetch()
+
+    assert adapter.last_success_at is not None
+    assert adapter.last_error is None
 
 
 def test_is_configured_defaults_to_true():

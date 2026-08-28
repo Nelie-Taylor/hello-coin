@@ -1,5 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
+from datetime import UTC, datetime
 
 from hello_coin.ingestion.models import WhaleEvent, WhaleMetric
 
@@ -21,6 +22,8 @@ class Adapter(ABC):
     def __init__(self) -> None:
         self._consecutive_failures = 0
         self._disabled = False
+        self._last_success_at: datetime | None = None
+        self._last_error: str | None = None
 
     def is_configured(self) -> bool:
         return True
@@ -28,6 +31,14 @@ class Adapter(ABC):
     @property
     def disabled(self) -> bool:
         return self._disabled
+
+    @property
+    def last_success_at(self) -> datetime | None:
+        return self._last_success_at
+
+    @property
+    def last_error(self) -> str | None:
+        return self._last_error
 
     @abstractmethod
     async def fetch(self) -> list[WhaleEvent] | list[WhaleMetric]:
@@ -38,8 +49,9 @@ class Adapter(ABC):
             return []
         try:
             result = await self.fetch()
-        except Exception:
+        except Exception as error:
             logger.exception("%s: fetch failed", self.name)
+            self._last_error = str(error)
             self._consecutive_failures += 1
             if self._consecutive_failures >= self.max_consecutive_failures:
                 self._disabled = True
@@ -50,4 +62,6 @@ class Adapter(ABC):
                 )
             return []
         self._consecutive_failures = 0
+        self._last_success_at = datetime.now(tz=UTC)
+        self._last_error = None
         return result

@@ -1,13 +1,15 @@
 from datetime import UTC, datetime
 
+import pytest
+
 from hello_coin.ingestion.models import WhaleEvent, WhaleMetric
 from hello_coin.ingestion.storage import WhaleStorage
 
 
-def _event(dedup_key: str) -> WhaleEvent:
+def _event(dedup_key: str, hour: int = 0) -> WhaleEvent:
     return WhaleEvent(
         source="hyperliquid",
-        timestamp=datetime(2026, 8, 22, tzinfo=UTC),
+        timestamp=datetime(2026, 8, 22, hour, tzinfo=UTC),
         chain_or_exchange="hyperliquid",
         symbol="BTC",
         event_type="fill",
@@ -66,6 +68,22 @@ def test_recent_events_filters_by_symbol_case_insensitive_and_since():
     assert matching[0]["amount_usd"] == 60000.0
     assert too_late == []
     assert wrong_symbol == []
+
+
+def test_latest_events_returns_matching_rows_newest_first_with_limit():
+    storage = WhaleStorage(":memory:")
+    storage.insert_events([_event("old", hour=0), _event("new", hour=1)])
+
+    events = storage.latest_events("btc", limit=1)
+
+    assert [event["dedup_key"] for event in events] == ["new"]
+
+
+def test_latest_events_rejects_non_positive_limit():
+    storage = WhaleStorage(":memory:")
+
+    with pytest.raises(ValueError, match="limit must be positive"):
+        storage.latest_events("BTC", limit=0)
 
 
 def test_recent_metrics_filters_by_symbol_case_insensitive_and_since():
