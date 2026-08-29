@@ -80,6 +80,7 @@ class DashboardService:
                 except (TypeError, json.JSONDecodeError):
                     row["raw"] = {}
                 rows.append(row)
+            rows.sort(key=lambda row: row["amount_usd"] or 0, reverse=True)
             status = self._coin_status(coin, hyperdash, now, bool(rows))
             tables.append(CoinPositionTable(coin=coin, rows=tuple(rows), status=status))
         return tuple(tables)

@@ -97,6 +97,42 @@ def test_load_snapshot_groups_fresh_hyperdash_positions_per_coin():
     assert snapshot.coin_positions[1].rows == ()
 
 
+def test_load_snapshot_orders_coin_positions_by_usd_value_descending():
+    service, whale_storage, _ = _service()
+    service = DashboardService(
+        whale_storage,
+        TechnicalStorage(":memory:"),
+        timeframe="1h",
+        lookback_hours=24,
+        hyperdash_watch_coins=["LINK"],
+    )
+    whale_storage.insert_events([
+        WhaleEvent(
+            source="hyperdash", timestamp=NOW, chain_or_exchange="hyperliquid", symbol="LINK",
+            event_type="position", side="buy", amount=1, amount_usd=60_000,
+            wallet_address="0xsmall", dedup_key="small", raw={},
+        ),
+        WhaleEvent(
+            source="hyperdash", timestamp=NOW, chain_or_exchange="hyperliquid", symbol="LINK",
+            event_type="position", side="sell", amount=2, amount_usd=180_000,
+            wallet_address="0xlarge", dedup_key="large", raw={},
+        ),
+        WhaleEvent(
+            source="hyperdash", timestamp=NOW, chain_or_exchange="hyperliquid", symbol="LINK",
+            event_type="position", side="buy", amount=1.5, amount_usd=90_000,
+            wallet_address="0xmedium", dedup_key="medium", raw={},
+        ),
+    ])
+
+    snapshot = service.load_snapshot("BTCUSDT", [], now=NOW)
+
+    assert [row["amount_usd"] for row in snapshot.coin_positions[0].rows] == [
+        180_000,
+        90_000,
+        60_000,
+    ]
+
+
 def test_load_snapshot_hides_stale_hyperdash_positions():
     service, whale_storage, _ = _service()
     service = DashboardService(
