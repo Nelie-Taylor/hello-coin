@@ -83,3 +83,9 @@ async def test_safe_fetch_records_success_and_clears_previous_error():
 def test_is_configured_defaults_to_true():
     adapter = _AlwaysSucceedsAdapter()
     assert adapter.is_configured() is True
+
+
+def test_consume_position_changes_defaults_to_empty():
+    adapter = _AlwaysSucceedsAdapter()
+
+    assert adapter.consume_position_changes() == []

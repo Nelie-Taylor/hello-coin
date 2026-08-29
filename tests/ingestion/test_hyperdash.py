@@ -103,3 +103,108 @@ async def test_fetch_isolates_coin_graphql_failure():
 
     assert [event.symbol for event in events] == ["SOL"]
     assert adapter.coin_statuses["LINK"]["state"] == "ERROR"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_fetch_second_refresh_reports_open_after_silent_baseline():
+    wallet = "0x3333333333333333333333333333333333333333"
+    graphql = respx.post(HYPERDASH_GRAPHQL_URL)
+    graphql.side_effect = [
+        httpx.Response(200, json={"data": {"perpDeltas": {"deltas": []}}}),
+        httpx.Response(
+            200,
+            json={"data": {"perpDeltas": {"deltas": [{"address": wallet, "current": 80_000}]}}},
+        ),
+    ]
+    respx.post(HYPERLIQUID_INFO_URL).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "assetPositions": [
+                    {"position": {"coin": "LINK", "szi": "2", "positionValue": "80_000"}}
+                ]
+            },
+        )
+    )
+    adapter = HyperdashAdapter(
+        Settings(_env_file=None, hyperdash_api_token="token", hyperdash_watch_coins=["LINK"])
+    )
+
+    await adapter.fetch()
+    assert adapter.consume_position_changes() == []
+
+    await adapter.fetch()
+
+    changes = adapter.consume_position_changes()
+    assert [(change.action, change.event.symbol) for change in changes] == [("open", "LINK")]
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_fetch_rechecks_prior_wallet_and_reports_confirmed_close():
+    wallet = "0x4444444444444444444444444444444444444444"
+    graphql = respx.post(HYPERDASH_GRAPHQL_URL)
+    graphql.side_effect = [
+        httpx.Response(
+            200,
+            json={"data": {"perpDeltas": {"deltas": [{"address": wallet, "current": 80_000}]}}},
+        ),
+        httpx.Response(200, json={"data": {"perpDeltas": {"deltas": []}}}),
+    ]
+    state = respx.post(HYPERLIQUID_INFO_URL)
+    state.side_effect = [
+        httpx.Response(
+            200,
+            json={
+                "assetPositions": [
+                    {"position": {"coin": "LINK", "szi": "2", "positionValue": "80_000"}}
+                ]
+            },
+        ),
+        httpx.Response(200, json={"assetPositions": []}),
+    ]
+    adapter = HyperdashAdapter(
+        Settings(_env_file=None, hyperdash_api_token="token", hyperdash_watch_coins=["LINK"])
+    )
+
+    await adapter.fetch()
+    await adapter.fetch()
+
+    changes = adapter.consume_position_changes()
+    assert [(change.action, change.event.wallet_address) for change in changes] == [("close", wallet)]
+    assert state.call_count == 2
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_fetch_does_not_close_position_when_prior_wallet_recheck_fails():
+    wallet = "0x5555555555555555555555555555555555555555"
+    graphql = respx.post(HYPERDASH_GRAPHQL_URL)
+    graphql.side_effect = [
+        httpx.Response(
+            200,
+            json={"data": {"perpDeltas": {"deltas": [{"address": wallet, "current": 80_000}]}}},
+        ),
+        httpx.Response(200, json={"data": {"perpDeltas": {"deltas": []}}}),
+    ]
+    state = respx.post(HYPERLIQUID_INFO_URL)
+    state.side_effect = [
+        httpx.Response(
+            200,
+            json={
+                "assetPositions": [
+                    {"position": {"coin": "LINK", "szi": "2", "positionValue": "80_000"}}
+                ]
+            },
+        ),
+        httpx.Response(500),
+    ]
+    adapter = HyperdashAdapter(
+        Settings(_env_file=None, hyperdash_api_token="token", hyperdash_watch_coins=["LINK"])
+    )
+
+    await adapter.fetch()
+    await adapter.fetch()
+
+    assert adapter.consume_position_changes() == []

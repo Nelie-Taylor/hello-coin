@@ -5,7 +5,8 @@ import httpx
 
 from hello_coin.ingestion.adapters.base import Adapter
 from hello_coin.ingestion.config import Settings
-from hello_coin.ingestion.models import WhaleEvent
+from hello_coin.ingestion.models import PositionChange, WhaleEvent
+from hello_coin.ingestion.position_changes import PositionChangeTracker
 
 HYPERDASH_GRAPHQL_URL = "https://api.hyperdash.com/graphql"
 HYPERLIQUID_INFO_URL = "https://api.hyperliquid.xyz/info"
@@ -64,6 +65,11 @@ class HyperdashAdapter(Adapter):
             coin.upper(): {"state": "STALE", "detail": "no successful poll", "last_success_at": None}
             for coin in settings.hyperdash_watch_coins
         }
+        self._position_tracker = PositionChangeTracker()
+        self._active_wallets_by_coin: dict[str, set[str]] = {
+            coin.upper(): set() for coin in settings.hyperdash_watch_coins
+        }
+        self._pending_position_changes: list[PositionChange] = []
 
     def is_configured(self) -> bool:
         return bool(self._settings.hyperdash_api_token and self._settings.hyperdash_watch_coins)
@@ -117,8 +123,15 @@ class HyperdashAdapter(Adapter):
                         "detail": str(error),
                         "last_success_at": self.coin_statuses.get(coin, {}).get("last_success_at"),
                     }
-            addresses = set().union(*addresses_by_coin.values()) if addresses_by_coin else set()
-            for address in addresses:
+            coins_by_address: dict[str, set[str]] = {}
+            for coin, candidate_addresses in addresses_by_coin.items():
+                addresses = candidate_addresses | self._active_wallets_by_coin[coin]
+                for address in addresses:
+                    coins_by_address.setdefault(address, set()).add(coin)
+
+            observed: dict[tuple[str, str], WhaleEvent] = {}
+            confirmed: set[tuple[str, str]] = set()
+            for address, coins in coins_by_address.items():
                 try:
                     response = await client.post(
                         HYPERLIQUID_INFO_URL,
@@ -126,20 +139,38 @@ class HyperdashAdapter(Adapter):
                     )
                     response.raise_for_status()
                     positions = response.json().get("assetPositions", [])
-                    for asset_position in positions:
-                        position = asset_position.get("position", {})
-                        coin = str(position.get("coin", "")).upper()
-                        if coin not in addresses_by_coin:
-                            continue
-                        event = _parse_position(address, position, now)
-                        if event and event.amount_usd >= self._settings.hyperdash_min_position_usd:
-                            events.append(event)
+                    positions_by_coin = {
+                        str(asset_position.get("position", {}).get("coin", "")).upper():
+                        asset_position.get("position", {})
+                        for asset_position in positions
+                    }
+                    for coin in coins:
+                        key = (address, coin)
+                        if address in self._active_wallets_by_coin[coin]:
+                            confirmed.add(key)
+                        event = _parse_position(address, positions_by_coin.get(coin, {}), now)
+                        is_tracked = address in self._active_wallets_by_coin[coin]
+                        if event and (is_tracked or event.amount_usd >= self._settings.hyperdash_min_position_usd):
+                            observed[key] = event
+                            if event.amount_usd >= self._settings.hyperdash_min_position_usd:
+                                events.append(event)
                 except (httpx.HTTPError, AttributeError, TypeError, ValueError) as error:
-                    for coin, coin_addresses in addresses_by_coin.items():
-                        if address in coin_addresses:
-                            self.coin_statuses[coin] = {
-                                "state": "ERROR",
-                                "detail": f"Hyperliquid {address[:10]}: {error}",
-                                "last_success_at": self.coin_statuses[coin].get("last_success_at"),
-                            }
+                    for coin in coins:
+                        self.coin_statuses[coin] = {
+                            "state": "ERROR",
+                            "detail": f"Hyperliquid {address[:10]}: {error}",
+                            "last_success_at": self.coin_statuses[coin].get("last_success_at"),
+                        }
+
+            self._pending_position_changes.extend(self._position_tracker.record(observed, confirmed))
+            for address, coin in confirmed:
+                if (address, coin) not in observed:
+                    self._active_wallets_by_coin[coin].discard(address)
+            for address, coin in observed:
+                self._active_wallets_by_coin[coin].add(address)
         return events
+
+    def consume_position_changes(self) -> list[PositionChange]:
+        changes = self._pending_position_changes
+        self._pending_position_changes = []
+        return changes

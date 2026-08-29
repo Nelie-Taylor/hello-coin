@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 
-from hello_coin.ingestion.models import WhaleEvent, WhaleMetric
+from hello_coin.ingestion.models import PositionChange, WhaleEvent, WhaleMetric
 
 logger = logging.getLogger(__name__)
 
@@ -65,3 +65,7 @@ class Adapter(ABC):
         self._last_success_at = datetime.now(tz=UTC)
         self._last_error = None
         return result
+
+    def consume_position_changes(self) -> list[PositionChange]:
+        """Return newly detected position transitions, if this source has any."""
+        return []
