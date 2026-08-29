@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import pytest
+from textual.widgets import Static
 
 from hello_coin.dashboard.app import DashboardApp
 from hello_coin.dashboard.models import (
@@ -149,9 +150,18 @@ class _CoinDashboardService(_DashboardService):
 async def test_dashboard_renders_one_position_table_for_each_coin():
     app = DashboardApp(_settings("BTCUSDT"), adapters=[], service=_CoinDashboardService(), start_workers=False)
     async with app.run_test():
-        content = app.query_one("#coin-positions").content
+        content = app.query_one("#coin-positions-scroll").content
 
     assert all(coin in content for coin in ("LINK", "SOL", "SUI", "NEAR", "HYPE"))
     assert "Wallet" in content and "Position USD" in content and "Leverage" in content
     assert "LONG" in content and "cross · 7x" in content
     assert "request failed" in content and "NOT CONFIGURED" in content
+
+
+@pytest.mark.asyncio
+async def test_dashboard_coin_panel_is_not_scrollable():
+    app = DashboardApp(_settings("BTCUSDT"), adapters=[], service=_CoinDashboardService(), start_workers=False)
+    async with app.run_test():
+        panel = app.query_one("#coin-positions-scroll")
+
+    assert isinstance(panel, Static)

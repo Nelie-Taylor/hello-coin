@@ -5,7 +5,7 @@ from typing import Any, ClassVar
 
 from textual import events, work
 from textual.app import App, ComposeResult
-from textual.containers import Grid, ScrollableContainer
+from textual.containers import Grid
 from textual.widgets import Footer, Header, Static
 
 from hello_coin.dashboard.models import DashboardSnapshot
@@ -47,11 +47,7 @@ class DashboardApp(App[None]):
 
     #coin-positions-scroll {
         column-span: 3;
-        height: 18;
         border: round $primary;
-    }
-
-    #coin-positions {
         padding: 1;
     }
     """
@@ -87,8 +83,7 @@ class DashboardApp(App[None]):
             yield Static(id="technical")
             yield Static(id="market-bias")
             yield Static(id="whale-activity")
-            with ScrollableContainer(id="coin-positions-scroll"):
-                yield Static(id="coin-positions")
+            yield Static(id="coin-positions-scroll")
             yield Static(id="system-status")
         yield Footer()
 
@@ -203,7 +198,7 @@ class DashboardApp(App[None]):
                     self._format_number(raw.get("liquidationPx")), self._format_number(raw.get("unrealizedPnl")),
                     self._format_age(row.get("timestamp"), snapshot.refreshed_at),
                 )))
-        self.query_one("#coin-positions", Static).update("\n".join(lines))
+        self.query_one("#coin-positions-scroll", Static).update("\n".join(lines))
 
     @staticmethod
     def _format_wallet(value: object) -> str:
