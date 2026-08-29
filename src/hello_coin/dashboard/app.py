@@ -31,7 +31,7 @@ class DashboardApp(App[None]):
     ]
     CSS = """
     Grid {
-        grid-size: 3 2;
+        grid-size: 3 6;
         grid-gutter: 1;
         padding: 1;
     }
@@ -46,7 +46,7 @@ class DashboardApp(App[None]):
     }
 
     .coin-position-panel {
-        column-span: 3;
+        column-span: 1;
         border: round $primary;
         padding: 1;
     }

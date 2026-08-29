@@ -164,3 +164,15 @@ async def test_dashboard_coin_panels_are_not_scrollable():
         panels = [app.query_one(f"#coin-{coin}") for coin in ("link", "sol", "sui", "near", "hype")]
 
     assert all(isinstance(panel, Static) for panel in panels)
+
+
+@pytest.mark.asyncio
+async def test_dashboard_coin_panels_use_multiple_columns():
+    app = DashboardApp(_settings("BTCUSDT"), adapters=[], service=_CoinDashboardService(), start_workers=False)
+    async with app.run_test():
+        panels = [app.query_one(f"#coin-{coin}") for coin in ("link", "sol", "sui", "near", "hype")]
+        x_positions = {panel.region.x for panel in panels}
+        heights = [panel.region.height for panel in panels]
+
+    assert len(x_positions) > 1
+    assert all(height > 0 for height in heights)
