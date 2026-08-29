@@ -5,7 +5,7 @@ from typing import Any, ClassVar
 
 from textual import events, work
 from textual.app import App, ComposeResult
-from textual.containers import Grid
+from textual.containers import Grid, ScrollableContainer
 from textual.widgets import Footer, Header, Static
 
 from hello_coin.dashboard.models import DashboardSnapshot
@@ -31,9 +31,11 @@ class DashboardApp(App[None]):
     ]
     CSS = """
     Grid {
-        grid-size: 3 6;
+        grid-size: 3;
+        grid-rows: auto;
         grid-gutter: 1;
         padding: 1;
+        overflow-y: auto;
     }
 
     #market-overview, #technical, #market-bias, #whale-activity, #system-status {
@@ -42,11 +44,12 @@ class DashboardApp(App[None]):
     }
 
     #whale-activity {
-        column-span: 2;
+        column-span: 3;
     }
 
     .coin-position-panel {
-        column-span: 1;
+        column-span: 3;
+        height: 5;
         border: round $primary;
         padding: 1;
     }
@@ -84,7 +87,9 @@ class DashboardApp(App[None]):
             yield Static(id="market-bias")
             yield Static(id="whale-activity")
             for coin in self._settings.hyperdash_watch_coins:
-                yield Static(id=self._coin_panel_id(coin), classes="coin-position-panel")
+                panel_id = self._coin_panel_id(coin)
+                with ScrollableContainer(id=f"{panel_id}-scroll", classes="coin-position-panel"):
+                    yield Static(id=panel_id)
             yield Static(id="system-status")
         yield Footer()
 

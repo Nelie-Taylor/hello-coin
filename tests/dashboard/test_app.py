@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import pytest
+from textual.containers import ScrollableContainer
 from textual.widgets import Static
 
 from hello_coin.dashboard.app import DashboardApp
@@ -158,21 +159,23 @@ async def test_dashboard_renders_one_position_table_for_each_coin():
 
 
 @pytest.mark.asyncio
-async def test_dashboard_coin_panels_are_not_scrollable():
+async def test_dashboard_coin_tables_are_full_width_and_scrollable():
+    app = DashboardApp(_settings("BTCUSDT"), adapters=[], service=_CoinDashboardService(), start_workers=False)
+    async with app.run_test(size=(80, 24)):
+        tables = [
+            app.query_one(f"#coin-{coin}-scroll")
+            for coin in ("link", "sol", "sui", "near", "hype")
+        ]
+        assert all(table.region.width >= 70 for table in tables)
+        assert all(table.region.height >= 5 for table in tables)
+
+    assert all(isinstance(table, ScrollableContainer) for table in tables)
+
+
+@pytest.mark.asyncio
+async def test_dashboard_coin_panels_preserve_their_content_widgets():
     app = DashboardApp(_settings("BTCUSDT"), adapters=[], service=_CoinDashboardService(), start_workers=False)
     async with app.run_test():
         panels = [app.query_one(f"#coin-{coin}") for coin in ("link", "sol", "sui", "near", "hype")]
 
     assert all(isinstance(panel, Static) for panel in panels)
-
-
-@pytest.mark.asyncio
-async def test_dashboard_coin_panels_use_multiple_columns():
-    app = DashboardApp(_settings("BTCUSDT"), adapters=[], service=_CoinDashboardService(), start_workers=False)
-    async with app.run_test():
-        panels = [app.query_one(f"#coin-{coin}") for coin in ("link", "sol", "sui", "near", "hype")]
-        x_positions = {panel.region.x for panel in panels}
-        heights = [panel.region.height for panel in panels]
-
-    assert len(x_positions) > 1
-    assert all(height > 0 for height in heights)
