@@ -31,7 +31,7 @@ class DashboardApp(App[None]):
     ]
     CSS = """
     Grid {
-        grid-size: 3;
+        grid-size: 2;
         grid-rows: auto;
         grid-gutter: 1;
         padding: 1;
@@ -44,12 +44,17 @@ class DashboardApp(App[None]):
     }
 
     #whale-activity {
-        column-span: 3;
+        column-span: 2;
+    }
+
+    #system-status {
+        column-span: 2;
     }
 
     .coin-position-panel {
-        column-span: 3;
-        height: 5;
+        column-span: 1;
+        height: 9;
+        min-height: 10;
         border: round $primary;
         padding: 1;
     }

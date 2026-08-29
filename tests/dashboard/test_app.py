@@ -159,17 +159,22 @@ async def test_dashboard_renders_one_position_table_for_each_coin():
 
 
 @pytest.mark.asyncio
-async def test_dashboard_coin_tables_are_full_width_and_scrollable():
+async def test_dashboard_coin_tables_use_two_columns_with_readable_content_height():
     app = DashboardApp(_settings("BTCUSDT"), adapters=[], service=_CoinDashboardService(), start_workers=False)
-    async with app.run_test(size=(80, 24)):
-        tables = [
-            app.query_one(f"#coin-{coin}-scroll")
+    async with app.run_test(size=(120, 30)):
+        tables = {
+            coin: app.query_one(f"#coin-{coin}-scroll")
             for coin in ("link", "sol", "sui", "near", "hype")
-        ]
-        assert all(table.region.width >= 70 for table in tables)
-        assert all(table.region.height >= 5 for table in tables)
+        }
+        assert tables["link"].region.y == tables["sol"].region.y
+        assert tables["sui"].region.y == tables["near"].region.y
+        assert tables["link"].region.x != tables["sol"].region.x
+        assert tables["sui"].region.x != tables["near"].region.x
+        assert tables["hype"].region.y > tables["sui"].region.y
+        assert all(table.region.width >= 50 for table in tables.values())
+        assert all(table.content_region.height >= 5 for table in tables.values())
 
-    assert all(isinstance(table, ScrollableContainer) for table in tables)
+    assert all(isinstance(table, ScrollableContainer) for table in tables.values())
 
 
 @pytest.mark.asyncio
