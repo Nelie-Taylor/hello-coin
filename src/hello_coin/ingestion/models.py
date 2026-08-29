@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 
 @dataclass(frozen=True)
@@ -18,6 +18,14 @@ class WhaleEvent:
     wallet_address: str | None
     dedup_key: str
     raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class PositionChange:
+    """A confirmed open or close transition for one whale position."""
+
+    action: Literal["open", "close"]
+    event: WhaleEvent
 
 
 @dataclass(frozen=True)
