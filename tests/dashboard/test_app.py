@@ -150,18 +150,17 @@ class _CoinDashboardService(_DashboardService):
 async def test_dashboard_renders_one_position_table_for_each_coin():
     app = DashboardApp(_settings("BTCUSDT"), adapters=[], service=_CoinDashboardService(), start_workers=False)
     async with app.run_test():
-        content = app.query_one("#coin-positions-scroll").content
+        panels = {coin: app.query_one(f"#coin-{coin.lower()}").content for coin in ("LINK", "SOL", "SUI", "NEAR", "HYPE")}
 
-    assert all(coin in content for coin in ("LINK", "SOL", "SUI", "NEAR", "HYPE"))
-    assert "Wallet" in content and "Position USD" in content and "Leverage" in content
-    assert "LONG" in content and "cross · 7x" in content
-    assert "request failed" in content and "NOT CONFIGURED" in content
+    assert all("Wallet" in content and "Position USD" in content and "Leverage" in content for content in panels.values())
+    assert "LONG" in panels["LINK"] and "cross · 7x" in panels["LINK"]
+    assert "request failed" in panels["SUI"] and "NOT CONFIGURED" in panels["NEAR"]
 
 
 @pytest.mark.asyncio
-async def test_dashboard_coin_panel_is_not_scrollable():
+async def test_dashboard_coin_panels_are_not_scrollable():
     app = DashboardApp(_settings("BTCUSDT"), adapters=[], service=_CoinDashboardService(), start_workers=False)
     async with app.run_test():
-        panel = app.query_one("#coin-positions-scroll")
+        panels = [app.query_one(f"#coin-{coin}") for coin in ("link", "sol", "sui", "near", "hype")]
 
-    assert isinstance(panel, Static)
+    assert all(isinstance(panel, Static) for panel in panels)

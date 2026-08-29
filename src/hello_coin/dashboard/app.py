@@ -45,7 +45,7 @@ class DashboardApp(App[None]):
         column-span: 2;
     }
 
-    #coin-positions-scroll {
+    .coin-position-panel {
         column-span: 3;
         border: round $primary;
         padding: 1;
@@ -83,7 +83,8 @@ class DashboardApp(App[None]):
             yield Static(id="technical")
             yield Static(id="market-bias")
             yield Static(id="whale-activity")
-            yield Static(id="coin-positions-scroll")
+            for coin in self._settings.hyperdash_watch_coins:
+                yield Static(id=self._coin_panel_id(coin), classes="coin-position-panel")
             yield Static(id="system-status")
         yield Footer()
 
@@ -181,24 +182,27 @@ class DashboardApp(App[None]):
         self.query_one("#system-status", Static).update("\n".join(status_lines))
 
     def _render_coin_positions(self, snapshot: DashboardSnapshot) -> None:
-        lines = ["[b]Hyperdash current positions[/b]"]
         headers = "Wallet | Side | Size | Position USD | Leverage | Entry | Liquidation | uPnL | Age"
         for table in snapshot.coin_positions:
-            lines.extend((f"\n[b]{table.coin}[/b] · {table.status.state}", headers))
+            lines = [f"[b]{table.coin} · {table.status.state}[/b]", headers]
             if not table.rows:
                 lines.append(table.status.detail or "No fresh positions.")
-                continue
-            for row in table.rows:
-                raw = row.get("raw") if isinstance(row.get("raw"), dict) else {}
-                side = "LONG" if row.get("side") == "buy" else "SHORT" if row.get("side") == "sell" else "N/A"
-                lines.append(" | ".join((
-                    self._format_wallet(row.get("wallet_address")), side,
-                    self._format_number(row.get("amount")), self._format_number(row.get("amount_usd")),
-                    self._format_position_leverage(raw), self._format_number(raw.get("entryPx")),
-                    self._format_number(raw.get("liquidationPx")), self._format_number(raw.get("unrealizedPnl")),
-                    self._format_age(row.get("timestamp"), snapshot.refreshed_at),
-                )))
-        self.query_one("#coin-positions-scroll", Static).update("\n".join(lines))
+            else:
+                for row in table.rows:
+                    raw = row.get("raw") if isinstance(row.get("raw"), dict) else {}
+                    side = "LONG" if row.get("side") == "buy" else "SHORT" if row.get("side") == "sell" else "N/A"
+                    lines.append(" | ".join((
+                        self._format_wallet(row.get("wallet_address")), side,
+                        self._format_number(row.get("amount")), self._format_number(row.get("amount_usd")),
+                        self._format_position_leverage(raw), self._format_number(raw.get("entryPx")),
+                        self._format_number(raw.get("liquidationPx")), self._format_number(raw.get("unrealizedPnl")),
+                        self._format_age(row.get("timestamp"), snapshot.refreshed_at),
+                    )))
+            self.query_one(f"#{self._coin_panel_id(table.coin)}", Static).update("\n".join(lines))
+
+    @staticmethod
+    def _coin_panel_id(coin: str) -> str:
+        return "coin-" + "".join(character.lower() if character.isalnum() else "-" for character in coin)
 
     @staticmethod
     def _format_wallet(value: object) -> str:

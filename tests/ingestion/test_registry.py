@@ -34,6 +34,7 @@ UNCONFIGURED_CREDENTIALS = {
 
 def test_build_adapters_includes_all_configured_sources():
     settings = Settings(
+        _env_file=None,
         hyperliquid_watch_addresses=["0xabc"],
         etherscan_api_key="test-key",
         etherscan_watch_addresses=["0xabc"],
@@ -53,6 +54,7 @@ def test_build_adapters_includes_all_configured_sources():
 
 def test_build_adapters_includes_configured_hyperdash():
     settings = Settings(
+        _env_file=None,
         hyperdash_api_token="token",
         hyperdash_watch_coins=["LINK"],
         hyperliquid_watch_addresses=[],
@@ -64,7 +66,7 @@ def test_build_adapters_includes_configured_hyperdash():
 
 
 def test_build_adapters_skips_unconfigured_hyperliquid_but_keeps_exchange_adapters(caplog):
-    settings = Settings(hyperliquid_watch_addresses=[], **UNCONFIGURED_CREDENTIALS)
+    settings = Settings(_env_file=None, hyperliquid_watch_addresses=[], **UNCONFIGURED_CREDENTIALS)
 
     with caplog.at_level(logging.WARNING):
         adapters = build_adapters(settings)
@@ -75,6 +77,7 @@ def test_build_adapters_skips_unconfigured_hyperliquid_but_keeps_exchange_adapte
 
 def test_build_adapters_skips_all_exchange_adapters_when_no_symbols(caplog):
     settings = Settings(
+        _env_file=None,
         hyperliquid_watch_addresses=["0xabc"],
         exchange_watch_symbols=[],
         **UNCONFIGURED_CREDENTIALS,
@@ -89,7 +92,7 @@ def test_build_adapters_skips_all_exchange_adapters_when_no_symbols(caplog):
 
 
 def test_build_adapters_skips_etherscan_chains_when_not_configured(caplog):
-    settings = Settings(hyperliquid_watch_addresses=["0xabc"], **UNCONFIGURED_CREDENTIALS)
+    settings = Settings(_env_file=None, hyperliquid_watch_addresses=["0xabc"], **UNCONFIGURED_CREDENTIALS)
 
     with caplog.at_level(logging.WARNING):
         adapters = build_adapters(settings)
@@ -100,7 +103,7 @@ def test_build_adapters_skips_etherscan_chains_when_not_configured(caplog):
 
 
 def test_build_adapters_skips_freemium_sources_when_not_configured(caplog):
-    settings = Settings(hyperliquid_watch_addresses=["0xabc"], **UNCONFIGURED_CREDENTIALS)
+    settings = Settings(_env_file=None, hyperliquid_watch_addresses=["0xabc"], **UNCONFIGURED_CREDENTIALS)
 
     with caplog.at_level(logging.WARNING):
         adapters = build_adapters(settings)
