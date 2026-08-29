@@ -81,6 +81,8 @@ async def test_fetch_filters_deltas_and_deduplicates_wallet_state_requests():
     assert state.call_count == 1
     assert json.loads(graphql.calls[0].request.content)["variables"]["market"] == "LINK"
     assert json.loads(graphql.calls[1].request.content)["variables"]["market"] == "SOL"
+    assert graphql.calls[0].request.headers["origin"] == "https://hyperdash.com"
+    assert graphql.calls[0].request.headers["referer"] == "https://hyperdash.com/"
 
 
 @pytest.mark.asyncio

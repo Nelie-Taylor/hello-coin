@@ -9,6 +9,12 @@ from hello_coin.ingestion.models import WhaleEvent
 
 HYPERDASH_GRAPHQL_URL = "https://api.hyperdash.com/graphql"
 HYPERLIQUID_INFO_URL = "https://api.hyperliquid.xyz/info"
+HYPERDASH_HEADERS = {
+    "Accept": "*/*",
+    "Origin": "https://hyperdash.com",
+    "Referer": "https://hyperdash.com/",
+    "User-Agent": "Mozilla/5.0",
+}
 GET_PERP_DELTAS_QUERY = (
     "query GetPerpDeltas($market: String!, $timeframe: DeltaTimeframe!) "
     "{ perpDeltas(market: $market, timeframe: $timeframe) "
@@ -76,7 +82,10 @@ class HyperdashAdapter(Adapter):
                 try:
                     response = await client.post(
                         HYPERDASH_GRAPHQL_URL,
-                        headers={"Authorization": f"Bearer {self._settings.hyperdash_api_token}"},
+                        headers={
+                            **HYPERDASH_HEADERS,
+                            "Authorization": f"Bearer {self._settings.hyperdash_api_token}",
+                        },
                         json={
                             "operationName": "GetPerpDeltas",
                             "variables": {
