@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import pytest
 
 from hello_coin.ingestion.adapters.base import Adapter
-from hello_coin.ingestion.models import WhaleEvent
+from hello_coin.ingestion.models import PositionChange, WhaleEvent
 from hello_coin.ingestion.scheduler import poll_once, run_adapter_loop
 from hello_coin.ingestion.storage import WhaleStorage
 
@@ -35,6 +35,17 @@ class _FixedResultAdapter(Adapter):
 
     async def fetch(self):
         return self._result
+
+
+class _PositionChangeAdapter(_FixedResultAdapter):
+    def __init__(self, result, changes: list[PositionChange]) -> None:
+        super().__init__(result)
+        self._changes = changes
+
+    def consume_position_changes(self) -> list[PositionChange]:
+        changes = self._changes
+        self._changes = []
+        return changes
 
 
 @pytest.mark.asyncio
@@ -77,3 +88,43 @@ async def test_run_adapter_loop_stops_when_event_set_during_fetch():
     await run_adapter_loop(_OneShotAdapter(), storage, stop_event)
 
     assert call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_poll_once_notifies_changes_after_persisting_events():
+    storage = WhaleStorage(":memory:")
+    event = _event("new")
+    adapter = _PositionChangeAdapter([event], [PositionChange("open", event)])
+
+    class _Notifier:
+        def __init__(self) -> None:
+            self.count_when_notified = 0
+            self.changes: list[PositionChange] = []
+
+        def notify(self, change: PositionChange) -> None:
+            self.count_when_notified = storage.count_events()
+            self.changes.append(change)
+
+    notifier = _Notifier()
+
+    inserted = await poll_once(adapter, storage, notifier)
+
+    assert inserted == 1
+    assert notifier.count_when_notified == 1
+    assert notifier.changes == [PositionChange("open", event)]
+
+
+@pytest.mark.asyncio
+async def test_poll_once_logs_notifier_failure_and_returns_insert_count(caplog):
+    storage = WhaleStorage(":memory:")
+    event = _event("new")
+    adapter = _PositionChangeAdapter([event], [PositionChange("open", event)])
+
+    class _FailingNotifier:
+        def notify(self, change: PositionChange) -> None:
+            raise RuntimeError("toast unavailable")
+
+    inserted = await poll_once(adapter, storage, _FailingNotifier())
+
+    assert inserted == 1
+    assert "failed to deliver whale position notification" in caplog.text

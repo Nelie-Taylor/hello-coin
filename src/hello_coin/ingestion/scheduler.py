@@ -3,25 +3,42 @@ import logging
 
 from hello_coin.ingestion.adapters.base import Adapter
 from hello_coin.ingestion.models import WhaleEvent
+from hello_coin.ingestion.notifications import NotificationSink
 from hello_coin.ingestion.storage import WhaleStorage
 
 logger = logging.getLogger(__name__)
 
 
-async def poll_once(adapter: Adapter, storage: WhaleStorage) -> int:
+async def poll_once(
+    adapter: Adapter,
+    storage: WhaleStorage,
+    notifier: NotificationSink | None = None,
+) -> int:
     result = await adapter.safe_fetch()
     if not result:
-        return 0
-    if isinstance(result[0], WhaleEvent):
-        return storage.insert_events(result)
-    return storage.insert_metrics(result)
+        inserted = 0
+    elif isinstance(result[0], WhaleEvent):
+        inserted = storage.insert_events(result)
+    else:
+        inserted = storage.insert_metrics(result)
+
+    if notifier is not None:
+        for change in adapter.consume_position_changes():
+            try:
+                notifier.notify(change)
+            except Exception:
+                logger.exception("failed to deliver whale position notification")
+    return inserted
 
 
 async def run_adapter_loop(
-    adapter: Adapter, storage: WhaleStorage, stop_event: asyncio.Event
+    adapter: Adapter,
+    storage: WhaleStorage,
+    stop_event: asyncio.Event,
+    notifier: NotificationSink | None = None,
 ) -> None:
     while not stop_event.is_set():
-        inserted = await poll_once(adapter, storage)
+        inserted = await poll_once(adapter, storage, notifier)
         logger.info("%s: inserted %d new row(s)", adapter.name, inserted)
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=adapter.poll_interval_seconds)
@@ -29,8 +46,10 @@ async def run_adapter_loop(
             pass
 
 
-async def run_forever(adapters: list[Adapter], storage: WhaleStorage) -> None:
+async def run_forever(
+    adapters: list[Adapter], storage: WhaleStorage, notifier: NotificationSink | None = None
+) -> None:
     stop_event = asyncio.Event()
     await asyncio.gather(
-        *(run_adapter_loop(adapter, storage, stop_event) for adapter in adapters)
+        *(run_adapter_loop(adapter, storage, stop_event, notifier) for adapter in adapters)
     )

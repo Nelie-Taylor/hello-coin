@@ -37,6 +37,30 @@ async def test_run_market_data_starts_ingestion_and_technical_together(monkeypat
     await asyncio.wait_for(cli._run_market_data(), timeout=0.1)
 
 
+@pytest.mark.asyncio
+async def test_run_ingest_passes_windows_notifier_to_ingestion_runner(monkeypatch):
+    settings = SimpleNamespace()
+    storage = MagicMock()
+    notifier = MagicMock()
+    captured: dict[str, object] = {}
+
+    async def run_ingestion(adapters, received_storage, received_notifier):
+        captured["adapters"] = adapters
+        captured["storage"] = received_storage
+        captured["notifier"] = received_notifier
+
+    monkeypatch.setattr(cli, "Settings", lambda: settings)
+    monkeypatch.setattr(cli, "build_adapters", lambda received_settings: ["adapter"])
+    monkeypatch.setattr(cli, "WhaleStorage", lambda path: storage)
+    monkeypatch.setattr(cli, "WindowsToastNotifier", lambda: notifier)
+    monkeypatch.setattr(cli, "run_ingestion_forever", run_ingestion)
+
+    await cli._run_ingest()
+
+    assert captured == {"adapters": ["adapter"], "storage": storage, "notifier": notifier}
+    storage.close.assert_called_once_with()
+
+
 def test_dashboard_parses():
     args = build_parser().parse_args(["dashboard"])
 

@@ -10,6 +10,7 @@ from hello_coin.decision.scheduler import run_forever as run_decision_forever
 from hello_coin.decision.service import compute_decision
 from hello_coin.decision.storage import DecisionStorage
 from hello_coin.ingestion.config import Settings
+from hello_coin.ingestion.notifications import WindowsToastNotifier
 from hello_coin.ingestion.registry import build_adapters
 from hello_coin.ingestion.scheduler import run_forever as run_ingestion_forever
 from hello_coin.ingestion.storage import WhaleStorage
@@ -92,8 +93,9 @@ async def _run_ingest() -> None:
     settings = Settings()
     adapters = build_adapters(settings)
     storage = WhaleStorage(DEFAULT_WHALE_DB_PATH)
+    notifier = WindowsToastNotifier()
     try:
-        await run_ingestion_forever(adapters, storage)
+        await run_ingestion_forever(adapters, storage, notifier)
     finally:
         storage.close()
 
