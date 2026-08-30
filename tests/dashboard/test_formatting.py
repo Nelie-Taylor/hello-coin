@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from hello_coin.dashboard.formatting import (
     coin_panel_id,
+    coin_skew,
     format_age,
     format_direction,
     format_event_leverage,
@@ -9,6 +10,7 @@ from hello_coin.dashboard.formatting import (
     format_position_leverage,
     format_wallet,
     position_side_label,
+    side_class,
 )
 
 
@@ -58,3 +60,29 @@ def test_position_side_label_maps_buy_and_sell():
 def test_coin_panel_id_slugifies_symbol():
     assert coin_panel_id("LINK") == "coin-link"
     assert coin_panel_id("BTC-PERP") == "coin-btc-perp"
+
+
+def test_side_class_maps_buy_and_sell():
+    assert side_class("buy") == "side-long"
+    assert side_class("sell") == "side-short"
+    assert side_class(None) == ""
+
+
+def test_coin_skew_returns_dominant_long_label_and_class():
+    rows = [
+        {"side": "buy", "amount_usd": 820_000.0},
+        {"side": "sell", "amount_usd": 180_000.0},
+    ]
+    assert coin_skew(rows) == ("LONG 82%", "side-long")
+
+
+def test_coin_skew_returns_dominant_short_label_and_class():
+    rows = [
+        {"side": "buy", "amount_usd": 180_000.0},
+        {"side": "sell", "amount_usd": 820_000.0},
+    ]
+    assert coin_skew(rows) == ("SHORT 82%", "side-short")
+
+
+def test_coin_skew_returns_empty_for_no_rows():
+    assert coin_skew([]) == ("", "")

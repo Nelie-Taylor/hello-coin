@@ -33,7 +33,7 @@
       {{ event.timestamp }} &middot; {{ event.source }} &middot; {{ event.symbol }} &middot;
       {{ event.event_type }} &middot; ${{ format_number(event.get("amount_usd")) }}
       <br>
-      &nbsp;&nbsp;{{ format_direction(event.get("side")) }} &middot; Leverage: {{ format_event_leverage(event.get("raw")) }}
+      &nbsp;&nbsp;<span class="{{ side_class(event.get("side")) }}">{{ format_direction(event.get("side")) }}</span> &middot; Leverage: {{ format_event_leverage(event.get("raw")) }}
     </li>
     {% endfor %}
   </ul>
@@ -43,8 +43,12 @@
 </div>
 
 {% for table in snapshot.coin_positions %}
+{% set skew_label, skew_class = coin_skew(table.rows) %}
 <div id="{{ coin_panel_id(table.coin) }}" class="panel coin-panel">
-  <h2>{{ table.coin }} &middot; {{ table.status.state }}</h2>
+  <h2>
+    {{ table.coin }} &middot; {{ table.status.state }}
+    {%- if skew_label %} &middot; <span class="{{ skew_class }}">{{ skew_label }}</span>{% endif %}
+  </h2>
   <table>
     <thead>
       <tr>
@@ -57,7 +61,7 @@
       {% for row in table.rows %}
       <tr>
         <td>{{ format_wallet(row.get("wallet_address")) }}</td>
-        <td>{{ position_side_label(row.get("side")) }}</td>
+        <td><span class="{{ side_class(row.get("side")) }}">{{ position_side_label(row.get("side")) }}</span></td>
         <td>{{ format_number(row.get("amount")) }}</td>
         <td>{{ format_number(row.get("amount_usd")) }}</td>
         <td>{{ format_position_leverage(row.get("raw", {})) }}</td>

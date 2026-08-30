@@ -78,6 +78,16 @@ main.grid {
   white-space: nowrap;
 }
 
+.side-long {
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.side-short {
+  color: #ff5c5c;
+  font-weight: 600;
+}
+
 @media (max-width: 800px) {
   main.grid {
     grid-template-columns: 1fr;

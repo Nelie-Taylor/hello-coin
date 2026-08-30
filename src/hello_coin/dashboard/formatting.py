@@ -1,7 +1,11 @@
 """Pure, framework-free formatting helpers shared by the dashboard templates."""
 
 import json
+from collections.abc import Sequence
 from datetime import datetime
+from typing import Any
+
+from hello_coin.ingestion.position_skew import compute_skew
 
 
 def format_number(value: object) -> str:
@@ -72,3 +76,27 @@ def position_side_label(side: object) -> str:
 
 def coin_panel_id(coin: str) -> str:
     return "coin-" + "".join(character.lower() if character.isalnum() else "-" for character in coin)
+
+
+def side_class(side: object) -> str:
+    if side == "buy":
+        return "side-long"
+    if side == "sell":
+        return "side-short"
+    return ""
+
+
+def coin_skew(rows: Sequence[dict[str, Any]]) -> tuple[str, str]:
+    """LONG/SHORT dominance label and CSS class for a coin's position rows.
+
+    Uses the same `compute_skew()` percentages that drive the Telegram dominance
+    alerts, so the number shown here always matches what triggers a notification.
+    """
+    long_usd = sum((row.get("amount_usd") or 0.0) for row in rows if row.get("side") == "buy")
+    short_usd = sum((row.get("amount_usd") or 0.0) for row in rows if row.get("side") == "sell")
+    if long_usd + short_usd <= 0:
+        return "", ""
+    long_pct, short_pct = compute_skew(long_usd, short_usd)
+    if long_pct >= short_pct:
+        return f"LONG {long_pct:.0%}", "side-long"
+    return f"SHORT {short_pct:.0%}", "side-short"

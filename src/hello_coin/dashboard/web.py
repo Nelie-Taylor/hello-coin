@@ -40,6 +40,8 @@ templates.env.globals.update(
     format_position_leverage=formatting.format_position_leverage,
     position_side_label=formatting.position_side_label,
     coin_panel_id=formatting.coin_panel_id,
+    side_class=formatting.side_class,
+    coin_skew=formatting.coin_skew,
 )
 
 
