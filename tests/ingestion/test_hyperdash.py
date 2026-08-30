@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -12,6 +12,7 @@ from hello_coin.ingestion.adapters.hyperdash import (
     _parse_position,
 )
 from hello_coin.ingestion.config import Settings
+from hello_coin.ingestion.models import WhaleEvent
 
 
 def test_parse_position_normalizes_long_and_leverage():
@@ -166,3 +167,69 @@ async def test_fetch_emits_exit_alert_when_dominant_wallet_closes_its_position()
     ]
     assert alerts[0].long_usd == 0.0
     assert alerts[0].short_usd == 0.0
+
+
+def _adapter(coins: list[str] | None = None) -> HyperdashAdapter:
+    return HyperdashAdapter(
+        Settings(
+            _env_file=None,
+            hyperdash_api_token="token",
+            hyperdash_watch_coins=coins if coins is not None else ["LINK"],
+        )
+    )
+
+
+def _position_event(coin: str, side: str, amount_usd: float) -> WhaleEvent:
+    return WhaleEvent(
+        source="hyperdash",
+        timestamp=datetime(2026, 8, 31, tzinfo=UTC),
+        chain_or_exchange="hyperliquid",
+        symbol=coin,
+        event_type="position",
+        side=side,
+        amount=1.0,
+        amount_usd=amount_usd,
+        wallet_address="0xabc",
+        dedup_key="k",
+        raw={},
+    )
+
+
+def test_update_skew_queues_snapshot_for_every_watched_coin_including_zero_positions():
+    adapter = _adapter(coins=["LINK", "SOL"])
+    now = datetime(2026, 8, 31, 0, 0, tzinfo=UTC)
+
+    adapter._update_skew({}, now)
+
+    snapshots = adapter.consume_skew_snapshots()
+    assert {snapshot.coin for snapshot in snapshots} == {"LINK", "SOL"}
+    assert all(snapshot.long_pct == 0.0 and snapshot.short_pct == 0.0 for snapshot in snapshots)
+    assert all(snapshot.timestamp == now for snapshot in snapshots)
+
+
+def test_update_skew_throttles_snapshots_within_five_minutes():
+    adapter = _adapter()
+    now = datetime(2026, 8, 31, 0, 0, tzinfo=UTC)
+    event = _position_event("LINK", "buy", 800_000.0)
+    adapter._update_skew({("0xabc", "LINK"): event}, now)
+    adapter.consume_skew_snapshots()
+
+    adapter._update_skew({("0xabc", "LINK"): event}, now + timedelta(minutes=4))
+
+    assert adapter.consume_skew_snapshots() == []
+
+
+def test_update_skew_emits_new_snapshot_after_five_minutes():
+    adapter = _adapter()
+    now = datetime(2026, 8, 31, 0, 0, tzinfo=UTC)
+    event = _position_event("LINK", "buy", 800_000.0)
+    adapter._update_skew({("0xabc", "LINK"): event}, now)
+    adapter.consume_skew_snapshots()
+
+    later = now + timedelta(minutes=5)
+    adapter._update_skew({("0xabc", "LINK"): event}, later)
+
+    snapshots = adapter.consume_skew_snapshots()
+    assert [snapshot.coin for snapshot in snapshots] == ["LINK"]
+    assert snapshots[0].timestamp == later
+    assert snapshots[0].long_pct == 1.0

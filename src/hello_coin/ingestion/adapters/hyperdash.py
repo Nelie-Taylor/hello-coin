@@ -6,7 +6,13 @@ import httpx
 from hello_coin.ingestion.adapters.base import Adapter
 from hello_coin.ingestion.config import Settings
 from hello_coin.ingestion.models import WhaleEvent
-from hello_coin.ingestion.position_skew import SkewAlert, SkewTracker
+from hello_coin.ingestion.position_skew import (
+    SNAPSHOT_INTERVAL_SECONDS,
+    SkewAlert,
+    SkewSnapshot,
+    SkewTracker,
+    compute_skew,
+)
 
 HYPERDASH_GRAPHQL_URL = "https://api.hyperdash.com/graphql"
 HYPERLIQUID_INFO_URL = "https://api.hyperliquid.xyz/info"
@@ -70,6 +76,8 @@ class HyperdashAdapter(Adapter):
             coin.upper(): set() for coin in settings.hyperdash_watch_coins
         }
         self._pending_skew_alerts: list[SkewAlert] = []
+        self._last_skew_snapshot_at: dict[str, datetime] = {}
+        self._pending_skew_snapshots: list[SkewSnapshot] = []
 
     def is_configured(self) -> bool:
         return bool(self._settings.hyperdash_api_token and self._settings.hyperdash_watch_coins)
@@ -162,7 +170,7 @@ class HyperdashAdapter(Adapter):
                             "last_success_at": self.coin_statuses[coin].get("last_success_at"),
                         }
 
-            self._update_skew(observed)
+            self._update_skew(observed, now)
             for address, coin in confirmed:
                 if (address, coin) not in observed:
                     self._active_wallets_by_coin[coin].discard(address)
@@ -170,7 +178,9 @@ class HyperdashAdapter(Adapter):
                 self._active_wallets_by_coin[coin].add(address)
         return events
 
-    def _update_skew(self, observed: dict[tuple[str, str], WhaleEvent]) -> None:
+    def _update_skew(
+        self, observed: dict[tuple[str, str], WhaleEvent], now: datetime
+    ) -> None:
         totals: dict[str, tuple[float, float]] = {}
         for (_, coin), event in observed.items():
             long_usd, short_usd = totals.get(coin, (0.0, 0.0))
@@ -186,8 +196,24 @@ class HyperdashAdapter(Adapter):
             alert = self._skew_tracker.update(coin, long_usd, short_usd)
             if alert is not None:
                 self._pending_skew_alerts.append(alert)
+            last_snapshot_at = self._last_skew_snapshot_at.get(coin)
+            due = (
+                last_snapshot_at is None
+                or (now - last_snapshot_at).total_seconds() >= SNAPSHOT_INTERVAL_SECONDS
+            )
+            if due:
+                long_pct, short_pct = compute_skew(long_usd, short_usd)
+                self._pending_skew_snapshots.append(
+                    SkewSnapshot(coin, now, long_usd, short_usd, long_pct, short_pct)
+                )
+                self._last_skew_snapshot_at[coin] = now
 
     def consume_skew_alerts(self) -> list[SkewAlert]:
         alerts = self._pending_skew_alerts
         self._pending_skew_alerts = []
         return alerts
+
+    def consume_skew_snapshots(self) -> list[SkewSnapshot]:
+        snapshots = self._pending_skew_snapshots
+        self._pending_skew_snapshots = []
+        return snapshots
