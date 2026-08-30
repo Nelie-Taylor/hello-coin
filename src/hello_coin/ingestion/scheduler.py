@@ -22,6 +22,8 @@ async def poll_once(
     else:
         inserted = storage.insert_metrics(result)
 
+    storage.insert_skew_snapshots(adapter.consume_skew_snapshots())
+
     if notifier is not None:
         for alert in adapter.consume_skew_alerts():
             try:

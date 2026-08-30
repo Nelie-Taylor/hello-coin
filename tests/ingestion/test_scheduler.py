@@ -5,7 +5,7 @@ import pytest
 
 from hello_coin.ingestion.adapters.base import Adapter
 from hello_coin.ingestion.models import WhaleEvent
-from hello_coin.ingestion.position_skew import SkewAlert
+from hello_coin.ingestion.position_skew import SkewAlert, SkewSnapshot
 from hello_coin.ingestion.scheduler import poll_once, run_adapter_loop
 from hello_coin.ingestion.storage import WhaleStorage
 
@@ -47,6 +47,17 @@ class _SkewAlertAdapter(_FixedResultAdapter):
         alerts = self._alerts
         self._alerts = []
         return alerts
+
+
+class _SkewSnapshotAdapter(_FixedResultAdapter):
+    def __init__(self, result, snapshots: list[SkewSnapshot]) -> None:
+        super().__init__(result)
+        self._snapshots = snapshots
+
+    def consume_skew_snapshots(self) -> list[SkewSnapshot]:
+        snapshots = self._snapshots
+        self._snapshots = []
+        return snapshots
 
 
 @pytest.mark.asyncio
@@ -131,3 +142,15 @@ async def test_poll_once_logs_notifier_failure_and_returns_insert_count(caplog):
 
     assert inserted == 1
     assert "failed to deliver whale position notification" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_poll_once_persists_skew_snapshots():
+    storage = WhaleStorage(":memory:")
+    snapshot = SkewSnapshot("LINK", datetime(2026, 8, 31, tzinfo=UTC), 800_000.0, 200_000.0, 0.8, 0.2)
+    adapter = _SkewSnapshotAdapter([], [snapshot])
+
+    await poll_once(adapter, storage)
+
+    history = storage.recent_skew_history("LINK", since=datetime(2020, 1, 1, tzinfo=UTC))
+    assert [row["long_pct"] for row in history] == [0.8]
