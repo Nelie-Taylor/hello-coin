@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 import pytest
 
 from hello_coin.ingestion.models import WhaleEvent, WhaleMetric
+from hello_coin.ingestion.position_skew import SkewSnapshot
 from hello_coin.ingestion.storage import WhaleStorage
 
 
@@ -138,3 +139,60 @@ def test_recent_metrics_filters_by_symbol_case_insensitive_and_since():
     assert matching[0]["metric_name"] == "top_trader_long_short_ratio"
     assert matching[0]["value"] == 1.8
     assert wrong_symbol == []
+
+
+def _skew_snapshot(coin: str, timestamp: datetime, long_pct: float = 0.8) -> SkewSnapshot:
+    return SkewSnapshot(
+        coin=coin,
+        timestamp=timestamp,
+        long_usd=long_pct * 1_000_000,
+        short_usd=(1 - long_pct) * 1_000_000,
+        long_pct=long_pct,
+        short_pct=1 - long_pct,
+    )
+
+
+def test_insert_skew_snapshots_returns_count_and_dedupes():
+    storage = WhaleStorage(":memory:")
+    snapshot = _skew_snapshot("LINK", datetime(2026, 8, 31, tzinfo=UTC))
+
+    inserted_first = storage.insert_skew_snapshots([snapshot])
+    inserted_second = storage.insert_skew_snapshots([snapshot])
+
+    assert inserted_first == 1
+    assert inserted_second == 0
+
+
+def test_insert_skew_snapshots_prunes_rows_older_than_30_days_relative_to_batch():
+    storage = WhaleStorage(":memory:")
+    storage.insert_skew_snapshots([_skew_snapshot("LINK", datetime(2026, 1, 1, tzinfo=UTC))])
+
+    newer = datetime(2026, 8, 31, tzinfo=UTC)
+    storage.insert_skew_snapshots([_skew_snapshot("LINK", newer)])
+
+    remaining = storage.recent_skew_history("LINK", since=datetime(2020, 1, 1, tzinfo=UTC))
+    assert [row["timestamp"] for row in remaining] == [newer.isoformat()]
+
+
+def test_insert_skew_snapshots_keeps_rows_within_30_days_of_batch():
+    storage = WhaleStorage(":memory:")
+    within_window = datetime(2026, 8, 5, tzinfo=UTC)  # 26 days before the batch below
+    storage.insert_skew_snapshots([_skew_snapshot("LINK", within_window)])
+
+    storage.insert_skew_snapshots([_skew_snapshot("LINK", datetime(2026, 8, 31, tzinfo=UTC))])
+
+    remaining = storage.recent_skew_history("LINK", since=datetime(2020, 1, 1, tzinfo=UTC))
+    assert len(remaining) == 2
+
+
+def test_recent_skew_history_filters_by_coin_case_insensitive_since_ordered_ascending():
+    storage = WhaleStorage(":memory:")
+    storage.insert_skew_snapshots([
+        _skew_snapshot("LINK", datetime(2026, 8, 31, 0, 0, tzinfo=UTC), long_pct=0.6),
+        _skew_snapshot("LINK", datetime(2026, 8, 31, 0, 5, tzinfo=UTC), long_pct=0.7),
+        _skew_snapshot("SOL", datetime(2026, 8, 31, 0, 5, tzinfo=UTC), long_pct=0.9),
+    ])
+
+    rows = storage.recent_skew_history("link", since=datetime(2026, 8, 31, tzinfo=UTC))
+
+    assert [row["long_pct"] for row in rows] == [0.6, 0.7]
