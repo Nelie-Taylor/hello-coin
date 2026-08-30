@@ -78,9 +78,12 @@ The dashboard shows one current-position table per configured coin, including LO
 position size, entry/liquidation, unrealized PnL, and leverage. Without a token, Hyperdash is
 shown as `NOT CONFIGURED`; the rest of the dashboard continues to run.
 
-To get whale position open/close alerts on Telegram instead of watching the dashboard, set
-`TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `.env` (see `.env.example`). Without both set, no
-alerts are sent — everything else keeps working.
+To get whale LONG/SHORT dominance alerts on Telegram instead of watching the dashboard, set
+`TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `.env` (see `.env.example`). For each Hyperdash
+watch coin, an alert fires when tracked whales' LONG or SHORT position value crosses above 75%
+of the coin's total (that side is now dominant) and again when it drops back below 70% (cooling
+off — a possible sign of exiting). Without both env vars set, no alerts are sent — everything
+else keeps working.
 
 ## Run with Docker
 
