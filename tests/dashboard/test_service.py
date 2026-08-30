@@ -170,6 +170,29 @@ def test_load_snapshot_includes_scores_recent_events_and_live_source():
     assert snapshot.source_statuses[0].state == "LIVE"
 
 
+def test_load_snapshot_whale_activity_includes_hyperdash_watch_coins_beyond_selected_symbol():
+    whale_storage = WhaleStorage(":memory:")
+    service = DashboardService(
+        whale_storage,
+        TechnicalStorage(":memory:"),
+        timeframe="1h",
+        lookback_hours=24,
+        hyperdash_watch_coins=["LINK"],
+    )
+    whale_storage.insert_events([
+        _whale_event(),
+        WhaleEvent(
+            source="hyperdash", timestamp=NOW, chain_or_exchange="hyperliquid", symbol="LINK",
+            event_type="position", side="sell", amount=2, amount_usd=125_000,
+            wallet_address="0xdef", dedup_key="link-position", raw={},
+        ),
+    ])
+
+    snapshot = service.load_snapshot("BTCUSDT", [], now=NOW)
+
+    assert {event["dedup_key"] for event in snapshot.whale_events} == {"latest", "link-position"}
+
+
 def test_load_snapshot_marks_source_with_error():
     service, _, _ = _service()
 

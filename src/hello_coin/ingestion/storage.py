@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 
@@ -140,19 +141,21 @@ class WhaleStorage:
         ).fetchall()
         return [dict(zip(_EVENT_COLUMNS, row, strict=True)) for row in rows]
 
-    def latest_events(self, symbol: str, limit: int = 10) -> list[dict]:
+    def latest_events(self, symbol: str | Sequence[str], limit: int = 10) -> list[dict]:
         if limit <= 0:
             raise ValueError("limit must be positive")
+        symbols = [symbol] if isinstance(symbol, str) else list(symbol)
+        placeholders = ", ".join("UPPER(?)" for _ in symbols)
         rows = self._conn.execute(
-            """
+            f"""
             SELECT source, timestamp, chain_or_exchange, symbol, event_type, side, amount,
                    amount_usd, wallet_address, dedup_key, raw
             FROM whale_events
-            WHERE symbol = ? COLLATE NOCASE
+            WHERE UPPER(symbol) IN ({placeholders})
             ORDER BY timestamp DESC
             LIMIT ?
             """,
-            (symbol, limit),
+            (*symbols, limit),
         ).fetchall()
         return [dict(zip(_EVENT_COLUMNS, row, strict=True)) for row in rows]
 

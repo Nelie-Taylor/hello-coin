@@ -86,6 +86,38 @@ def test_latest_events_rejects_non_positive_limit():
         storage.latest_events("BTC", limit=0)
 
 
+def test_latest_events_accepts_multiple_symbols_merged_newest_first():
+    storage = WhaleStorage(":memory:")
+    btc_event = _event("btc-old", hour=0)
+    link_event = WhaleEvent(
+        source="hyperdash",
+        timestamp=datetime(2026, 8, 22, 1, tzinfo=UTC),
+        chain_or_exchange="hyperliquid",
+        symbol="LINK",
+        event_type="position",
+        side="sell",
+        amount=2.0,
+        amount_usd=125_000.0,
+        wallet_address="0xdef",
+        dedup_key="link-new",
+        raw={},
+    )
+    storage.insert_events([btc_event, link_event])
+
+    events = storage.latest_events(["btc", "link"], limit=10)
+
+    assert [event["dedup_key"] for event in events] == ["link-new", "btc-old"]
+
+
+def test_latest_events_with_multiple_symbols_excludes_others():
+    storage = WhaleStorage(":memory:")
+    storage.insert_events([_event("btc-only")])
+
+    events = storage.latest_events(["link", "sol"], limit=10)
+
+    assert events == []
+
+
 def test_recent_metrics_filters_by_symbol_case_insensitive_and_since():
     storage = WhaleStorage(":memory:")
     metric = WhaleMetric(

@@ -49,10 +49,11 @@ class DashboardService:
         technical_score = compute_technical_score(technical) if technical is not None else None
         bias = compute_market_bias(compute_whale_score(events, metrics), technical_score)
         coin_positions = self._load_coin_positions(sources, now)
+        activity_symbols = list(dict.fromkeys([asset, *self._hyperdash_watch_coins]))
         return DashboardSnapshot(
             symbol=symbol,
             technical=technical,
-            whale_events=tuple(self._whale_storage.latest_events(asset)),
+            whale_events=tuple(self._whale_storage.latest_events(activity_symbols, limit=20)),
             bias=bias,
             source_statuses=tuple(self._source_status(source, now) for source in sources),
             refreshed_at=now,
