@@ -6,6 +6,7 @@ import pytest
 
 from hello_coin.dashboard.service import DashboardService
 from hello_coin.ingestion.models import WhaleEvent
+from hello_coin.ingestion.position_skew import SkewSnapshot
 from hello_coin.ingestion.storage import WhaleStorage
 from hello_coin.technical.models import IndicatorSnapshot
 from hello_coin.technical.storage import TechnicalStorage
@@ -230,3 +231,22 @@ def test_close_closes_both_storage_connections():
         whale_storage.count_events()
     with pytest.raises(sqlite3.ProgrammingError):
         technical_storage.count_snapshots()
+
+
+def test_load_snapshot_includes_skew_history_per_coin():
+    whale_storage = WhaleStorage(":memory:")
+    service = DashboardService(
+        whale_storage,
+        TechnicalStorage(":memory:"),
+        timeframe="1h",
+        lookback_hours=24,
+        hyperdash_watch_coins=["LINK"],
+    )
+    whale_storage.insert_skew_snapshots([
+        SkewSnapshot("LINK", NOW - timedelta(minutes=5), 800_000.0, 200_000.0, 0.8, 0.2),
+        SkewSnapshot("LINK", NOW, 700_000.0, 300_000.0, 0.7, 0.3),
+    ])
+
+    snapshot = service.load_snapshot("BTCUSDT", [], now=NOW)
+
+    assert [row["long_pct"] for row in snapshot.coin_positions[0].skew_history] == [0.8, 0.7]

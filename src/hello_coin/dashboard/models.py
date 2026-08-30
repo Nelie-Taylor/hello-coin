@@ -26,6 +26,7 @@ class CoinPositionTable:
     coin: str
     rows: tuple[dict[str, Any], ...]
     status: SourceStatus
+    skew_history: tuple[dict[str, Any], ...] = ()
 
 
 @dataclass(frozen=True)

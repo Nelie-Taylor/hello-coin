@@ -70,6 +70,8 @@ class DashboardService:
         if freshness is None:
             freshness = min((hyperdash.poll_interval_seconds * 2 if hyperdash else 120), 300)
         since = now - timedelta(seconds=freshness)
+        # 30 days matches WhaleStorage.insert_skew_snapshots's own pruning window.
+        skew_since = now - timedelta(days=30)
         tables: list[CoinPositionTable] = []
         for coin in self._hyperdash_watch_coins:
             rows: list[dict] = []
@@ -83,7 +85,12 @@ class DashboardService:
                 rows.append(row)
             rows.sort(key=lambda row: row["amount_usd"] or 0, reverse=True)
             status = self._coin_status(coin, hyperdash, now, bool(rows))
-            tables.append(CoinPositionTable(coin=coin, rows=tuple(rows), status=status))
+            skew_history = tuple(self._whale_storage.recent_skew_history(coin, skew_since))
+            tables.append(
+                CoinPositionTable(
+                    coin=coin, rows=tuple(rows), status=status, skew_history=skew_history
+                )
+            )
         return tuple(tables)
 
     @staticmethod
