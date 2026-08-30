@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 
 from hello_coin.ingestion.models import WhaleEvent, WhaleMetric
-from hello_coin.ingestion.position_skew import SkewAlert
+from hello_coin.ingestion.position_skew import SkewAlert, SkewSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -69,4 +69,8 @@ class Adapter(ABC):
 
     def consume_skew_alerts(self) -> list[SkewAlert]:
         """Return newly detected LONG/SHORT dominance transitions, if this source has any."""
+        return []
+
+    def consume_skew_snapshots(self) -> list[SkewSnapshot]:
+        """Return newly sampled LONG/SHORT dominance snapshots, if this source has any."""
         return []

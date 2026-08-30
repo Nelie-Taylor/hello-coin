@@ -89,3 +89,9 @@ def test_consume_skew_alerts_defaults_to_empty():
     adapter = _AlwaysSucceedsAdapter()
 
     assert adapter.consume_skew_alerts() == []
+
+
+def test_consume_skew_snapshots_defaults_to_empty():
+    adapter = _AlwaysSucceedsAdapter()
+
+    assert adapter.consume_skew_snapshots() == []
