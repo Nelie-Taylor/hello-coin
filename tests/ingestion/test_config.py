@@ -201,3 +201,29 @@ def test_hyperdash_settings_parse_environment(monkeypatch):
     assert settings.hyperdash_delta_timeframe == "ONE_HOUR"
     assert settings.hyperdash_min_delta_usd == 100_000
     assert settings.hyperdash_min_position_usd == 250_000
+
+
+def test_telegram_and_dashboard_settings_default(monkeypatch):
+    for var in ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "DASHBOARD_HOST", "DASHBOARD_PORT"):
+        monkeypatch.delenv(var, raising=False)
+
+    settings = Settings(_env_file=None)
+
+    assert settings.telegram_bot_token is None
+    assert settings.telegram_chat_id is None
+    assert settings.dashboard_host == "0.0.0.0"
+    assert settings.dashboard_port == 8080
+
+
+def test_telegram_and_dashboard_settings_read_from_env(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "bot-token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "12345")
+    monkeypatch.setenv("DASHBOARD_HOST", "127.0.0.1")
+    monkeypatch.setenv("DASHBOARD_PORT", "9000")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.telegram_bot_token == "bot-token"
+    assert settings.telegram_chat_id == "12345"
+    assert settings.dashboard_host == "127.0.0.1"
+    assert settings.dashboard_port == 9000

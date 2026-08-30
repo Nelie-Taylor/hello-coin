@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     liquidation_proximity_pct: float = 0.10
     liquidation_poll_interval_seconds: int = 900
 
+    telegram_bot_token: str | None = None
+    telegram_chat_id: str | None = None
+    dashboard_host: str = "0.0.0.0"
+    dashboard_port: int = 8080
+
     @field_validator(
         "hyperliquid_watch_addresses",
         "exchange_watch_symbols",
