@@ -1,7 +1,12 @@
+import json
 from datetime import UTC, datetime
 
+import httpx
+import pytest
+import respx
+
 from hello_coin.ingestion.models import PositionChange, WhaleEvent
-from hello_coin.ingestion.notifications import WindowsToastNotifier, format_position_notification
+from hello_coin.ingestion.notifications import TelegramNotifier, format_position_notification
 
 
 def _change(action: str = "open") -> PositionChange:
@@ -22,7 +27,7 @@ def _change(action: str = "open") -> PositionChange:
     )
 
 
-def test_open_toast_contains_action_coin_side_value_and_short_wallet():
+def test_open_notification_contains_action_coin_side_value_and_short_wallet():
     title, body = format_position_notification(_change())
 
     assert title == "Whale opened position"
@@ -31,21 +36,47 @@ def test_open_toast_contains_action_coin_side_value_and_short_wallet():
     assert "0x1234...cdef" in body
 
 
-def test_notifier_skips_non_windows_platform(monkeypatch):
-    calls: list[object] = []
-    monkeypatch.setattr("hello_coin.ingestion.notifications.platform.system", lambda: "Linux")
+@pytest.mark.asyncio
+@respx.mock
+async def test_notify_posts_title_and_body_to_telegram_api():
+    route = respx.post("https://api.telegram.org/bottoken123/sendMessage").mock(
+        return_value=httpx.Response(200, json={"ok": True})
+    )
+    async with httpx.AsyncClient() as client:
+        notifier = TelegramNotifier("token123", "chat456", client=client)
+        await notifier.notify(_change())
 
-    WindowsToastNotifier(run=calls.append).notify(_change())
+    assert route.called
+    payload = json.loads(route.calls.last.request.content)
+    assert payload["chat_id"] == "chat456"
+    assert "Whale opened position" in payload["text"]
+    assert "SOL SHORT" in payload["text"]
 
-    assert calls == []
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_notify_is_noop_without_bot_token():
+    async with httpx.AsyncClient() as client:
+        notifier = TelegramNotifier(None, "chat456", client=client)
+        await notifier.notify(_change())
 
 
-def test_notifier_logs_delivery_failure_without_raising(monkeypatch, caplog):
-    def fail(_command: object, **_kwargs: object) -> None:
-        raise OSError("PowerShell missing")
+@pytest.mark.asyncio
+@respx.mock
+async def test_notify_is_noop_without_chat_id():
+    async with httpx.AsyncClient() as client:
+        notifier = TelegramNotifier("token123", None, client=client)
+        await notifier.notify(_change())
 
-    monkeypatch.setattr("hello_coin.ingestion.notifications.platform.system", lambda: "Windows")
 
-    WindowsToastNotifier(run=fail).notify(_change())
+@pytest.mark.asyncio
+@respx.mock
+async def test_notify_logs_delivery_failure_without_raising(caplog):
+    respx.post("https://api.telegram.org/bottoken123/sendMessage").mock(
+        return_value=httpx.Response(500)
+    )
+    async with httpx.AsyncClient() as client:
+        notifier = TelegramNotifier("token123", "chat456", client=client)
+        await notifier.notify(_change())
 
-    assert "failed to send Windows toast" in caplog.text
+    assert "failed to send Telegram notification" in caplog.text

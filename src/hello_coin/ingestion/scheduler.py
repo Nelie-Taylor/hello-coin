@@ -25,7 +25,7 @@ async def poll_once(
     if notifier is not None:
         for change in adapter.consume_position_changes():
             try:
-                notifier.notify(change)
+                await notifier.notify(change)
             except Exception:
                 logger.exception("failed to deliver whale position notification")
     return inserted

@@ -38,8 +38,8 @@ async def test_run_market_data_starts_ingestion_and_technical_together(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_run_ingest_passes_windows_notifier_to_ingestion_runner(monkeypatch):
-    settings = SimpleNamespace()
+async def test_run_ingest_passes_telegram_notifier_to_ingestion_runner(monkeypatch):
+    settings = SimpleNamespace(telegram_bot_token="bot-token", telegram_chat_id="chat-id")
     storage = MagicMock()
     notifier = MagicMock()
     captured: dict[str, object] = {}
@@ -49,15 +49,24 @@ async def test_run_ingest_passes_windows_notifier_to_ingestion_runner(monkeypatc
         captured["storage"] = received_storage
         captured["notifier"] = received_notifier
 
+    def build_notifier(bot_token, chat_id):
+        captured["bot_token"] = bot_token
+        captured["chat_id"] = chat_id
+        return notifier
+
     monkeypatch.setattr(cli, "Settings", lambda: settings)
     monkeypatch.setattr(cli, "build_adapters", lambda received_settings: ["adapter"])
     monkeypatch.setattr(cli, "WhaleStorage", lambda path: storage)
-    monkeypatch.setattr(cli, "WindowsToastNotifier", lambda: notifier)
+    monkeypatch.setattr(cli, "TelegramNotifier", build_notifier)
     monkeypatch.setattr(cli, "run_ingestion_forever", run_ingestion)
 
     await cli._run_ingest()
 
-    assert captured == {"adapters": ["adapter"], "storage": storage, "notifier": notifier}
+    assert captured["adapters"] == ["adapter"]
+    assert captured["storage"] is storage
+    assert captured["notifier"] is notifier
+    assert captured["bot_token"] == "bot-token"
+    assert captured["chat_id"] == "chat-id"
     storage.close.assert_called_once_with()
 
 

@@ -1,18 +1,17 @@
-import base64
-import json
 import logging
-import platform
-import subprocess
-from collections.abc import Callable
 from typing import Protocol
+
+import httpx
 
 from hello_coin.ingestion.models import PositionChange
 
 logger = logging.getLogger(__name__)
 
+TELEGRAM_API_URL = "https://api.telegram.org/bot{token}/sendMessage"
+
 
 class NotificationSink(Protocol):
-    def notify(self, change: PositionChange) -> None: ...
+    async def notify(self, change: PositionChange) -> None: ...
 
 
 def _short_wallet(wallet: str | None) -> str:
@@ -31,37 +30,32 @@ def format_position_notification(change: PositionChange) -> tuple[str, str]:
     return f"Whale {action} position", f"{event.symbol} {side} · {value} · {_short_wallet(event.wallet_address)}"
 
 
-def _toast_script(title: str, body: str) -> str:
-    payload = base64.b64encode(json.dumps({"title": title, "body": body}).encode()).decode()
-    return f"""
-$payload = '{payload}'
-$data = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($payload)) | ConvertFrom-Json
-function Escape-ToastXml([string] $value) {{ return [Security.SecurityElement]::Escape($value) }}
-[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime] | Out-Null
-$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
-$xml.LoadXml("<toast><visual><binding template='ToastGeneric'><text>$(Escape-ToastXml $data.title)</text><text>$(Escape-ToastXml $data.body)</text></binding></visual></toast>")
-$toast = New-Object Windows.UI.Notifications.ToastNotification $xml
-[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('hello-coin').Show($toast)
-""".strip()
+class TelegramNotifier:
+    """Deliver whale position-change alerts via the Telegram Bot API.
 
+    A missing bot token or chat ID is treated as "not configured" — `notify()` is a
+    silent no-op, matching every other optional credential in this codebase.
+    """
 
-class WindowsToastNotifier:
-    """Deliver local system notifications without interrupting ingestion."""
+    def __init__(
+        self,
+        bot_token: str | None,
+        chat_id: str | None,
+        client: httpx.AsyncClient | None = None,
+    ) -> None:
+        self._bot_token = bot_token
+        self._chat_id = chat_id
+        self._client = client or httpx.AsyncClient(timeout=10.0)
 
-    def __init__(self, run: Callable[..., object] = subprocess.run) -> None:
-        self._run = run
-
-    def notify(self, change: PositionChange) -> None:
-        if platform.system() != "Windows":
+    async def notify(self, change: PositionChange) -> None:
+        if not self._bot_token or not self._chat_id:
             return
         title, body = format_position_notification(change)
         try:
-            self._run(
-                ["powershell", "-NoProfile", "-NonInteractive", "-Command", _toast_script(title, body)],
-                check=True,
-                capture_output=True,
-                text=True,
+            response = await self._client.post(
+                TELEGRAM_API_URL.format(token=self._bot_token),
+                json={"chat_id": self._chat_id, "text": f"{title}\n{body}"},
             )
-        except (OSError, subprocess.CalledProcessError):
-            logger.exception("failed to send Windows toast")
+            response.raise_for_status()
+        except httpx.HTTPError:
+            logger.exception("failed to send Telegram notification")

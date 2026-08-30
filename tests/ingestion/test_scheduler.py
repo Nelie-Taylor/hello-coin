@@ -101,7 +101,7 @@ async def test_poll_once_notifies_changes_after_persisting_events():
             self.count_when_notified = 0
             self.changes: list[PositionChange] = []
 
-        def notify(self, change: PositionChange) -> None:
+        async def notify(self, change: PositionChange) -> None:
             self.count_when_notified = storage.count_events()
             self.changes.append(change)
 
@@ -121,7 +121,7 @@ async def test_poll_once_logs_notifier_failure_and_returns_insert_count(caplog):
     adapter = _PositionChangeAdapter([event], [PositionChange("open", event)])
 
     class _FailingNotifier:
-        def notify(self, change: PositionChange) -> None:
+        async def notify(self, change: PositionChange) -> None:
             raise RuntimeError("toast unavailable")
 
     inserted = await poll_once(adapter, storage, _FailingNotifier())
