@@ -1,0 +1,91 @@
+{% if error %}
+<div id="system-status" class="panel span-2 error">
+  <h2>System status</h2>
+  <p>Refresh error: {{ error }}</p>
+</div>
+{% else %}
+<div id="market-overview" class="panel">
+  <h2>{{ snapshot.symbol }} &middot; Market overview</h2>
+  <p>Close: {{ format_number(snapshot.technical.get("close_price") if snapshot.technical else None) }}</p>
+  <p>Timeframe: {{ settings.technical_timeframe }}</p>
+</div>
+
+<div id="technical" class="panel">
+  <h2>Technical</h2>
+  <p>RSI: {{ format_number(snapshot.technical.get("rsi") if snapshot.technical else None) }}</p>
+  <p>MACD histogram: {{ format_number(snapshot.technical.get("macd_histogram") if snapshot.technical else None) }}</p>
+  <p>EMA: {{ format_number(snapshot.technical.get("ema") if snapshot.technical else None) }}</p>
+</div>
+
+<div id="market-bias" class="panel">
+  <h2>Market bias</h2>
+  <p>{{ snapshot.bias.label }}</p>
+  <p>Score: {{ format_number(snapshot.bias.score) }}</p>
+  <p>Whale: {{ format_number(snapshot.bias.whale_score) }} &middot; Technical: {{ format_number(snapshot.bias.technical_score) }}</p>
+</div>
+
+<div id="whale-activity" class="panel span-2">
+  <h2>Whale activity</h2>
+  {% if snapshot.whale_events %}
+  <ul>
+    {% for event in snapshot.whale_events %}
+    <li>
+      {{ event.timestamp }} &middot; {{ event.source }} &middot; {{ event.symbol }} &middot;
+      {{ event.event_type }} &middot; ${{ format_number(event.get("amount_usd")) }}
+      <br>
+      &nbsp;&nbsp;{{ format_direction(event.get("side")) }} &middot; Leverage: {{ format_event_leverage(event.get("raw")) }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No persisted whale events for this symbol.</p>
+  {% endif %}
+</div>
+
+{% for table in snapshot.coin_positions %}
+<div id="{{ coin_panel_id(table.coin) }}" class="panel coin-panel">
+  <h2>{{ table.coin }} &middot; {{ table.status.state }}</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Wallet</th><th>Side</th><th>Size</th><th>Position USD</th><th>Leverage</th>
+        <th>Entry</th><th>Liquidation</th><th>uPnL</th><th>Age</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if table.rows %}
+      {% for row in table.rows %}
+      <tr>
+        <td>{{ format_wallet(row.get("wallet_address")) }}</td>
+        <td>{{ position_side_label(row.get("side")) }}</td>
+        <td>{{ format_number(row.get("amount")) }}</td>
+        <td>{{ format_number(row.get("amount_usd")) }}</td>
+        <td>{{ format_position_leverage(row.get("raw", {})) }}</td>
+        <td>{{ format_number(row.get("raw", {}).get("entryPx")) }}</td>
+        <td>{{ format_number(row.get("raw", {}).get("liquidationPx")) }}</td>
+        <td>{{ format_number(row.get("raw", {}).get("unrealizedPnl")) }}</td>
+        <td>{{ format_age(row.get("timestamp"), snapshot.refreshed_at) }}</td>
+      </tr>
+      {% endfor %}
+      {% else %}
+      <tr><td colspan="9">{{ table.status.detail or "No fresh positions." }}</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+
+<div id="system-status" class="panel span-2">
+  <h2>System status</h2>
+  {% if snapshot.source_statuses %}
+  <ul>
+    {% for status in snapshot.source_statuses %}
+    <li>{{ status.state }}: {{ status.name }} &middot; {{ status.detail }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>NOT CONFIGURED: no ingestion source enabled</p>
+  {% endif %}
+  <p>Informational only &mdash; no orders are sent.</p>
+</div>
+{% endif %}

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hello Coin Dashboard</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
+  <script src="/static/htmx.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Hello Coin Dashboard</h1>
+    <form method="get" action="/">
+      <label for="symbol-select">Symbol</label>
+      <select id="symbol-select" name="symbol" onchange="this.form.submit()">
+        {% for choice in symbols %}
+        <option value="{{ choice }}" {% if choice == symbol %}selected{% endif %}>{{ choice }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    <span id="refresh-status" data-refresh-seconds="{{ refresh_seconds }}">LIVE &middot; Next refresh: {{ refresh_seconds }}s</span>
+  </header>
+  <main
+    id="panels"
+    class="grid"
+    hx-get="/panels?symbol={{ symbol }}"
+    hx-trigger="every {{ refresh_seconds }}s"
+    hx-swap="innerHTML"
+  >
+    {% include "_panels.html" %}
+  </main>
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>
