@@ -78,11 +78,21 @@ def test_dashboard_parses():
 
 def test_main_runs_dashboard_without_creating_ai_client(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["hello-coin", "dashboard"])
-    settings = SimpleNamespace(exchange_watch_symbols=["BTCUSDT"])
+    settings = SimpleNamespace(
+        exchange_watch_symbols=["BTCUSDT"], dashboard_host="0.0.0.0", dashboard_port=8080
+    )
     app = MagicMock()
+    captured: dict[str, object] = {}
     monkeypatch.setattr(cli, "Settings", lambda: settings)
     monkeypatch.setattr(cli, "build_adapters", lambda configured: [])
-    monkeypatch.setattr(cli, "DashboardApp", lambda settings, adapters: app)
+    monkeypatch.setattr(cli, "create_app", lambda settings, adapters: app)
+
+    def fake_run(received_app, host, port):
+        captured["app"] = received_app
+        captured["host"] = host
+        captured["port"] = port
+
+    monkeypatch.setattr(cli.uvicorn, "run", fake_run)
 
     def fail_if_created(*args, **kwargs):
         raise AssertionError("dashboard must not create an AI client")
@@ -91,7 +101,7 @@ def test_main_runs_dashboard_without_creating_ai_client(monkeypatch):
 
     cli.main()
 
-    app.run.assert_called_once_with()
+    assert captured == {"app": app, "host": "0.0.0.0", "port": 8080}
 
 
 def test_dashboard_logging_writes_to_file_without_terminal_handler(tmp_path, monkeypatch):

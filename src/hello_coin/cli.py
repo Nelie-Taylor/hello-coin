@@ -3,9 +3,10 @@ import asyncio
 import logging
 from pathlib import Path
 
+import uvicorn
 from anthropic import AsyncAnthropic
 
-from hello_coin.dashboard.app import DashboardApp
+from hello_coin.dashboard.web import create_app
 from hello_coin.decision.scheduler import run_forever as run_decision_forever
 from hello_coin.decision.service import compute_decision
 from hello_coin.decision.storage import DecisionStorage
@@ -129,7 +130,8 @@ async def _run_market_data() -> None:
 
 def _run_dashboard() -> None:
     settings = Settings()
-    DashboardApp(settings=settings, adapters=build_adapters(settings)).run()
+    app = create_app(settings=settings, adapters=build_adapters(settings))
+    uvicorn.run(app, host=settings.dashboard_host, port=settings.dashboard_port)
 
 
 async def _test_technical(symbol: str) -> None:
