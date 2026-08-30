@@ -1,4 +1,13 @@
-from hello_coin.ingestion.position_skew import SkewAlert, SkewTracker, compute_skew, next_zone
+from datetime import UTC, datetime
+
+from hello_coin.ingestion.position_skew import (
+    SNAPSHOT_INTERVAL_SECONDS,
+    SkewAlert,
+    SkewSnapshot,
+    SkewTracker,
+    compute_skew,
+    next_zone,
+)
 
 
 def test_compute_skew_returns_zero_zero_for_zero_total():
@@ -80,3 +89,22 @@ def test_tracker_tracks_each_coin_independently():
 
     assert link_alert.zone == "long_dominant"
     assert sol_alert.zone == "short_dominant"
+
+
+def test_snapshot_interval_is_five_minutes():
+    assert SNAPSHOT_INTERVAL_SECONDS == 300
+
+
+def test_skew_snapshot_holds_coin_timestamp_and_percentages():
+    snapshot = SkewSnapshot(
+        coin="LINK",
+        timestamp=datetime(2026, 8, 31, tzinfo=UTC),
+        long_usd=800_000.0,
+        short_usd=200_000.0,
+        long_pct=0.8,
+        short_pct=0.2,
+    )
+
+    assert snapshot.coin == "LINK"
+    assert snapshot.long_pct == 0.8
+    assert snapshot.short_pct == 0.2

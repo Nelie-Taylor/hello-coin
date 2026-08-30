@@ -1,12 +1,14 @@
 """Pure, framework-free LONG/SHORT dominance tracking for whale positions."""
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Literal
 
 SkewZone = Literal["neutral", "long_dominant", "short_dominant"]
 
 DOMINANT_THRESHOLD = 0.75
 EXIT_THRESHOLD = 0.70
+SNAPSHOT_INTERVAL_SECONDS = 300
 
 
 def compute_skew(long_usd: float, short_usd: float) -> tuple[float, float]:
@@ -33,6 +35,16 @@ class SkewAlert:
     coin: str
     zone: SkewZone
     direction: Literal["enter", "exit"]
+    long_usd: float
+    short_usd: float
+    long_pct: float
+    short_pct: float
+
+
+@dataclass(frozen=True)
+class SkewSnapshot:
+    coin: str
+    timestamp: datetime
     long_usd: float
     short_usd: float
     long_pct: float
