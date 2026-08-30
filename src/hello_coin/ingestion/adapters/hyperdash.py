@@ -5,8 +5,8 @@ import httpx
 
 from hello_coin.ingestion.adapters.base import Adapter
 from hello_coin.ingestion.config import Settings
-from hello_coin.ingestion.models import PositionChange, WhaleEvent
-from hello_coin.ingestion.position_changes import PositionChangeTracker
+from hello_coin.ingestion.models import WhaleEvent
+from hello_coin.ingestion.position_skew import SkewAlert, SkewTracker
 
 HYPERDASH_GRAPHQL_URL = "https://api.hyperdash.com/graphql"
 HYPERLIQUID_INFO_URL = "https://api.hyperliquid.xyz/info"
@@ -65,11 +65,11 @@ class HyperdashAdapter(Adapter):
             coin.upper(): {"state": "STALE", "detail": "no successful poll", "last_success_at": None}
             for coin in settings.hyperdash_watch_coins
         }
-        self._position_tracker = PositionChangeTracker()
+        self._skew_tracker = SkewTracker()
         self._active_wallets_by_coin: dict[str, set[str]] = {
             coin.upper(): set() for coin in settings.hyperdash_watch_coins
         }
-        self._pending_position_changes: list[PositionChange] = []
+        self._pending_skew_alerts: list[SkewAlert] = []
 
     def is_configured(self) -> bool:
         return bool(self._settings.hyperdash_api_token and self._settings.hyperdash_watch_coins)
@@ -162,7 +162,7 @@ class HyperdashAdapter(Adapter):
                             "last_success_at": self.coin_statuses[coin].get("last_success_at"),
                         }
 
-            self._pending_position_changes.extend(self._position_tracker.record(observed, confirmed))
+            self._update_skew(observed)
             for address, coin in confirmed:
                 if (address, coin) not in observed:
                     self._active_wallets_by_coin[coin].discard(address)
@@ -170,7 +170,24 @@ class HyperdashAdapter(Adapter):
                 self._active_wallets_by_coin[coin].add(address)
         return events
 
-    def consume_position_changes(self) -> list[PositionChange]:
-        changes = self._pending_position_changes
-        self._pending_position_changes = []
-        return changes
+    def _update_skew(self, observed: dict[tuple[str, str], WhaleEvent]) -> None:
+        totals: dict[str, tuple[float, float]] = {}
+        for (_, coin), event in observed.items():
+            long_usd, short_usd = totals.get(coin, (0.0, 0.0))
+            amount_usd = event.amount_usd or 0.0
+            if event.side == "buy":
+                long_usd += amount_usd
+            else:
+                short_usd += amount_usd
+            totals[coin] = (long_usd, short_usd)
+        for configured_coin in self._settings.hyperdash_watch_coins:
+            coin = configured_coin.upper()
+            long_usd, short_usd = totals.get(coin, (0.0, 0.0))
+            alert = self._skew_tracker.update(coin, long_usd, short_usd)
+            if alert is not None:
+                self._pending_skew_alerts.append(alert)
+
+    def consume_skew_alerts(self) -> list[SkewAlert]:
+        alerts = self._pending_skew_alerts
+        self._pending_skew_alerts = []
+        return alerts
