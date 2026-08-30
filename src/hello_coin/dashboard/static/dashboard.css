@@ -78,6 +78,33 @@ main.grid {
   white-space: nowrap;
 }
 
+.skew-chart {
+  width: 100%;
+  max-height: 160px;
+  margin-bottom: 0.75rem;
+}
+
+.whale-activity-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.whale-activity-col h3 {
+  margin-top: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.whale-activity-col ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
 .side-long {
   color: #4ade80;
   font-weight: 600;
@@ -94,5 +121,8 @@ main.grid {
   }
   .panel.span-2 {
     grid-column: span 1;
+  }
+  .whale-activity-columns {
+    grid-template-columns: 1fr;
   }
 }

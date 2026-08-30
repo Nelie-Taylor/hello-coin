@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import json
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -36,6 +37,7 @@ templates.env.globals.update(
     format_wallet=formatting.format_wallet,
     format_age=formatting.format_age,
     format_direction=formatting.format_direction,
+    is_recent_event=formatting.is_recent_event,
     format_event_leverage=formatting.format_event_leverage,
     format_position_leverage=formatting.format_position_leverage,
     position_side_label=formatting.position_side_label,
@@ -43,6 +45,7 @@ templates.env.globals.update(
     side_class=formatting.side_class,
     coin_skew=formatting.coin_skew,
 )
+templates.env.filters["tojson"] = json.dumps
 
 
 def create_app(

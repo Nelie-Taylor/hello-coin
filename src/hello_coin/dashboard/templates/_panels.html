@@ -24,19 +24,38 @@
   <p>Whale: {{ format_number(snapshot.bias.whale_score) }} &middot; Technical: {{ format_number(snapshot.bias.technical_score) }}</p>
 </div>
 
+{% macro whale_event_item(event) %}
+<li>
+  {{ event.timestamp }} &middot; {{ event.source }} &middot; {{ event.symbol }} &middot;
+  {{ event.event_type }} &middot; ${{ format_number(event.get("amount_usd")) }}
+  <br>
+  &nbsp;&nbsp;<span class="{{ side_class(event.get("side")) }}">{{ format_direction(event.get("side")) }}</span> &middot; Leverage: {{ format_event_leverage(event.get("raw")) }}
+</li>
+{% endmacro %}
+
 <div id="whale-activity" class="panel span-2">
   <h2>Whale activity</h2>
   {% if snapshot.whale_events %}
-  <ul>
-    {% for event in snapshot.whale_events %}
-    <li>
-      {{ event.timestamp }} &middot; {{ event.source }} &middot; {{ event.symbol }} &middot;
-      {{ event.event_type }} &middot; ${{ format_number(event.get("amount_usd")) }}
-      <br>
-      &nbsp;&nbsp;<span class="{{ side_class(event.get("side")) }}">{{ format_direction(event.get("side")) }}</span> &middot; Leverage: {{ format_event_leverage(event.get("raw")) }}
-    </li>
-    {% endfor %}
-  </ul>
+  <div class="whale-activity-columns">
+    <div class="whale-activity-col">
+      <h3>All activity</h3>
+      <ul>
+        {% for event in snapshot.whale_events %}
+        {{ whale_event_item(event) }}
+        {% endfor %}
+      </ul>
+    </div>
+    <div id="whale-activity-recent" class="whale-activity-col">
+      <h3>Recent (last 15m)</h3>
+      <ul>
+        {% for event in snapshot.whale_events if is_recent_event(event.timestamp, snapshot.refreshed_at) %}
+        {{ whale_event_item(event) }}
+        {% else %}
+        <li class="muted">No whale orders in the last 15 minutes.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
   {% else %}
   <p>No persisted whale events for this symbol.</p>
   {% endif %}
@@ -50,6 +69,8 @@
     {%- if skew_label %} &middot; <span class="{{ skew_class }}">{{ skew_label }}</span>{% endif %}
     {%- if skew_entry_avg %} &middot; Entry avg {{ skew_entry_avg }}{% endif %}
   </h2>
+  <canvas id="{{ coin_panel_id(table.coin) }}-skew-chart" class="skew-chart"
+          data-skew='{{ table.skew_history | tojson }}'></canvas>
   <table>
     <thead>
       <tr>
