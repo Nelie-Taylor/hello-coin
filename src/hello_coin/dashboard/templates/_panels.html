@@ -43,11 +43,12 @@
 </div>
 
 {% for table in snapshot.coin_positions %}
-{% set skew_label, skew_class = coin_skew(table.rows) %}
+{% set skew_label, skew_class, skew_entry_avg = coin_skew(table.rows) %}
 <div id="{{ coin_panel_id(table.coin) }}" class="panel coin-panel">
   <h2>
     {{ table.coin }} &middot; {{ table.status.state }}
     {%- if skew_label %} &middot; <span class="{{ skew_class }}">{{ skew_label }}</span>{% endif %}
+    {%- if skew_entry_avg %} &middot; Entry avg {{ skew_entry_avg }}{% endif %}
   </h2>
   <table>
     <thead>

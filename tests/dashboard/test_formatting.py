@@ -70,19 +70,45 @@ def test_side_class_maps_buy_and_sell():
 
 def test_coin_skew_returns_dominant_long_label_and_class():
     rows = [
-        {"side": "buy", "amount_usd": 820_000.0},
-        {"side": "sell", "amount_usd": 180_000.0},
+        {"side": "buy", "amount_usd": 820_000.0, "raw": {}},
+        {"side": "sell", "amount_usd": 180_000.0, "raw": {}},
     ]
-    assert coin_skew(rows) == ("LONG 82%", "side-long")
+    assert coin_skew(rows) == ("LONG 82%", "side-long", "")
 
 
 def test_coin_skew_returns_dominant_short_label_and_class():
     rows = [
-        {"side": "buy", "amount_usd": 180_000.0},
-        {"side": "sell", "amount_usd": 820_000.0},
+        {"side": "buy", "amount_usd": 180_000.0, "raw": {}},
+        {"side": "sell", "amount_usd": 820_000.0, "raw": {}},
     ]
-    assert coin_skew(rows) == ("SHORT 82%", "side-short")
+    assert coin_skew(rows) == ("SHORT 82%", "side-short", "")
 
 
 def test_coin_skew_returns_empty_for_no_rows():
-    assert coin_skew([]) == ("", "")
+    assert coin_skew([]) == ("", "", "")
+
+
+def test_coin_skew_computes_weighted_average_entry_for_dominant_long_side():
+    rows = [
+        {"side": "buy", "amount_usd": 410_000.0, "raw": {"entryPx": "100"}},
+        {"side": "buy", "amount_usd": 410_000.0, "raw": {"entryPx": "200"}},
+        {"side": "sell", "amount_usd": 180_000.0, "raw": {"entryPx": "9999"}},
+    ]
+    assert coin_skew(rows) == ("LONG 82%", "side-long", "150.0000")
+
+
+def test_coin_skew_computes_weighted_average_entry_for_dominant_short_side():
+    rows = [
+        {"side": "sell", "amount_usd": 410_000.0, "raw": {"entryPx": "50"}},
+        {"side": "sell", "amount_usd": 410_000.0, "raw": {"entryPx": "70"}},
+        {"side": "buy", "amount_usd": 180_000.0, "raw": {"entryPx": "9999"}},
+    ]
+    assert coin_skew(rows) == ("SHORT 82%", "side-short", "60.0000")
+
+
+def test_coin_skew_ignores_rows_with_missing_or_invalid_entry_price():
+    rows = [
+        {"side": "buy", "amount_usd": 820_000.0, "raw": {"entryPx": "not-a-number"}},
+        {"side": "sell", "amount_usd": 180_000.0, "raw": {}},
+    ]
+    assert coin_skew(rows) == ("LONG 82%", "side-long", "")

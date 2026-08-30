@@ -86,17 +86,43 @@ def side_class(side: object) -> str:
     return ""
 
 
-def coin_skew(rows: Sequence[dict[str, Any]]) -> tuple[str, str]:
-    """LONG/SHORT dominance label and CSS class for a coin's position rows.
+def coin_skew(rows: Sequence[dict[str, Any]]) -> tuple[str, str, str]:
+    """LONG/SHORT dominance label, CSS class, and dominant-side weighted average entry
+    price for a coin's position rows.
 
     Uses the same `compute_skew()` percentages that drive the Telegram dominance
-    alerts, so the number shown here always matches what triggers a notification.
+    alerts, so the number shown here always matches what triggers a notification. The
+    average entry price is weighted by `amount_usd` and computed only over rows on
+    whichever side is currently dominant (matching the notified side).
     """
     long_usd = sum((row.get("amount_usd") or 0.0) for row in rows if row.get("side") == "buy")
     short_usd = sum((row.get("amount_usd") or 0.0) for row in rows if row.get("side") == "sell")
     if long_usd + short_usd <= 0:
-        return "", ""
+        return "", "", ""
     long_pct, short_pct = compute_skew(long_usd, short_usd)
-    if long_pct >= short_pct:
-        return f"LONG {long_pct:.0%}", "side-long"
-    return f"SHORT {short_pct:.0%}", "side-short"
+    dominant_side = "buy" if long_pct >= short_pct else "sell"
+    label, css_class = (
+        (f"LONG {long_pct:.0%}", "side-long")
+        if dominant_side == "buy"
+        else (f"SHORT {short_pct:.0%}", "side-short")
+    )
+    return label, css_class, _weighted_average_entry(rows, dominant_side)
+
+
+def _weighted_average_entry(rows: Sequence[dict[str, Any]], side: str) -> str:
+    weighted_sum = 0.0
+    weight_total = 0.0
+    for row in rows:
+        if row.get("side") != side:
+            continue
+        raw = row.get("raw") or {}
+        try:
+            entry_px = float(raw.get("entryPx"))
+        except (TypeError, ValueError):
+            continue
+        weight = row.get("amount_usd") or 0.0
+        weighted_sum += entry_px * weight
+        weight_total += weight
+    if weight_total <= 0:
+        return ""
+    return format_number(weighted_sum / weight_total)
