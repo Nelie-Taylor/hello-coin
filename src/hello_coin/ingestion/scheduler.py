@@ -23,9 +23,9 @@ async def poll_once(
         inserted = storage.insert_metrics(result)
 
     if notifier is not None:
-        for change in adapter.consume_position_changes():
+        for alert in adapter.consume_skew_alerts():
             try:
-                await notifier.notify(change)
+                await notifier.notify(alert)
             except Exception:
                 logger.exception("failed to deliver whale position notification")
     return inserted

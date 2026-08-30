@@ -4,7 +4,8 @@ from datetime import UTC, datetime
 import pytest
 
 from hello_coin.ingestion.adapters.base import Adapter
-from hello_coin.ingestion.models import PositionChange, WhaleEvent
+from hello_coin.ingestion.models import WhaleEvent
+from hello_coin.ingestion.position_skew import SkewAlert
 from hello_coin.ingestion.scheduler import poll_once, run_adapter_loop
 from hello_coin.ingestion.storage import WhaleStorage
 
@@ -37,15 +38,15 @@ class _FixedResultAdapter(Adapter):
         return self._result
 
 
-class _PositionChangeAdapter(_FixedResultAdapter):
-    def __init__(self, result, changes: list[PositionChange]) -> None:
+class _SkewAlertAdapter(_FixedResultAdapter):
+    def __init__(self, result, alerts: list[SkewAlert]) -> None:
         super().__init__(result)
-        self._changes = changes
+        self._alerts = alerts
 
-    def consume_position_changes(self) -> list[PositionChange]:
-        changes = self._changes
-        self._changes = []
-        return changes
+    def consume_skew_alerts(self) -> list[SkewAlert]:
+        alerts = self._alerts
+        self._alerts = []
+        return alerts
 
 
 @pytest.mark.asyncio
@@ -94,16 +95,17 @@ async def test_run_adapter_loop_stops_when_event_set_during_fetch():
 async def test_poll_once_notifies_changes_after_persisting_events():
     storage = WhaleStorage(":memory:")
     event = _event("new")
-    adapter = _PositionChangeAdapter([event], [PositionChange("open", event)])
+    alert = SkewAlert("BTC", "long_dominant", "enter", 800_000.0, 200_000.0, 0.8, 0.2)
+    adapter = _SkewAlertAdapter([event], [alert])
 
     class _Notifier:
         def __init__(self) -> None:
             self.count_when_notified = 0
-            self.changes: list[PositionChange] = []
+            self.alerts: list[SkewAlert] = []
 
-        async def notify(self, change: PositionChange) -> None:
+        async def notify(self, alert: SkewAlert) -> None:
             self.count_when_notified = storage.count_events()
-            self.changes.append(change)
+            self.alerts.append(alert)
 
     notifier = _Notifier()
 
@@ -111,18 +113,19 @@ async def test_poll_once_notifies_changes_after_persisting_events():
 
     assert inserted == 1
     assert notifier.count_when_notified == 1
-    assert notifier.changes == [PositionChange("open", event)]
+    assert notifier.alerts == [alert]
 
 
 @pytest.mark.asyncio
 async def test_poll_once_logs_notifier_failure_and_returns_insert_count(caplog):
     storage = WhaleStorage(":memory:")
     event = _event("new")
-    adapter = _PositionChangeAdapter([event], [PositionChange("open", event)])
+    alert = SkewAlert("BTC", "long_dominant", "enter", 800_000.0, 200_000.0, 0.8, 0.2)
+    adapter = _SkewAlertAdapter([event], [alert])
 
     class _FailingNotifier:
-        async def notify(self, change: PositionChange) -> None:
-            raise RuntimeError("toast unavailable")
+        async def notify(self, alert: SkewAlert) -> None:
+            raise RuntimeError("telegram unavailable")
 
     inserted = await poll_once(adapter, storage, _FailingNotifier())
 
