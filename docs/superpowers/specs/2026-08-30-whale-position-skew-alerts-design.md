@@ -38,9 +38,12 @@ Each coin has one of three states, tracked independently:
 - `long_dominant`
 - `short_dominant`
 
-Percentages are `long_pct = long_usd / (long_usd + short_usd)` and `short_pct = 1 - long_pct`
-(skipped entirely — no state change — when `long_usd + short_usd <= 0`, i.e. no tracked
-positions for that coin yet).
+Percentages are `long_pct = long_usd / (long_usd + short_usd)` and `short_pct = 1 - long_pct`,
+or `(0.0, 0.0)` when `long_usd + short_usd <= 0` (no tracked positions for that coin at all).
+Treating "no data" as `(0.0, 0.0)` rather than skipping the update is deliberate: it makes "every
+tracked whale closed out" behave exactly like "the dominant side fell to 0%", which correctly
+fires an exit alert if the coin was previously in a dominant zone, while correctly staying
+`neutral` with no alert before any position has ever been observed (0% is never above 75%).
 
 Transitions:
 
@@ -110,7 +113,8 @@ codebase depends on it:
 ## New
 
 - `src/hello_coin/ingestion/position_skew.py` — pure, framework-free:
-  - `compute_skew(long_usd: float, short_usd: float) -> tuple[float, float] | None`
+  - `compute_skew(long_usd: float, short_usd: float) -> tuple[float, float]` (returns `(0.0,
+    0.0)` for a zero-or-negative total instead of raising)
   - `next_zone(current: SkewZone, long_pct: float, short_pct: float) -> SkewZone`
   - `@dataclass(frozen=True) class SkewAlert` (`coin`, `zone`, `direction`, `long_usd`,
     `short_usd`, `long_pct`, `short_pct`)
@@ -119,8 +123,9 @@ codebase depends on it:
 ## Testing
 
 - `position_skew.py` gets full unit coverage with zero mocking: threshold crossings in both
-  directions, staying within a dominant zone not re-alerting, the 70–75% dead zone, and the
-  zero-total no-op case.
+  directions, staying within a dominant zone not re-alerting, the 70–75% dead zone, a zero
+  total staying `neutral` from a fresh tracker (no alert), and a zero total from a dominant
+  zone firing an exit alert.
 - `HyperdashAdapter` tests: replace the three open/close tests with tests that drive two
   consecutive `fetch()` calls through a long-skew scenario and assert `consume_skew_alerts()`
   returns the expected enter/exit `SkewAlert`s; keep every other existing `test_hyperdash.py`
