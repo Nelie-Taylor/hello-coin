@@ -85,7 +85,7 @@ def test_is_configured_defaults_to_true():
     assert adapter.is_configured() is True
 
 
-def test_consume_position_changes_defaults_to_empty():
+def test_consume_skew_alerts_defaults_to_empty():
     adapter = _AlwaysSucceedsAdapter()
 
-    assert adapter.consume_position_changes() == []
+    assert adapter.consume_skew_alerts() == []
