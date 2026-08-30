@@ -56,11 +56,12 @@ uv run hello-coin
 3. Run the service continuously: `uv run hello-coin decision run` — writes to
    `data/decisions.db`. Polls once per hour per symbol.
 
-## Terminal dashboard
+## Web dashboard
 
 Run `uv run hello-coin dashboard` to start local whale ingestion, technical collection, and a
-terminal dashboard. The display refreshes every 60 seconds and shows a deterministic market bias
-from whale (70%) and technical (30%) scores. It never sends orders and does not invoke the
+web dashboard at `http://<DASHBOARD_HOST>:<DASHBOARD_PORT>/` (defaults to
+`http://localhost:8080/`). The page refreshes every 60 seconds and shows a deterministic market
+bias from whale (70%) and technical (30%) scores. It never sends orders and does not invoke the
 Anthropic decision engine.
 
 To enable Hyperdash per-coin whale discovery, set these optional values in `.env`:
@@ -76,6 +77,22 @@ HYPERDASH_MIN_POSITION_USD=50000
 The dashboard shows one current-position table per configured coin, including LONG/SHORT,
 position size, entry/liquidation, unrealized PnL, and leverage. Without a token, Hyperdash is
 shown as `NOT CONFIGURED`; the rest of the dashboard continues to run.
+
+To get whale position open/close alerts on Telegram instead of watching the dashboard, set
+`TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `.env` (see `.env.example`). Without both set, no
+alerts are sent — everything else keeps working.
+
+## Run with Docker
+
+```
+docker compose up -d
+```
+
+Then open `http://localhost:8080/`. This runs the same thing as `uv run hello-coin dashboard`
+(whale ingestion + technical indicators + web dashboard) inside a container; `./data` is mounted
+into the container so `whale.db`/`technical.db`/`dashboard.log` persist across restarts. Copy
+`.env.example` to `.env` and configure it exactly as described above first — `docker-compose.yml`
+reads `.env` via `env_file`.
 
 ## Test
 
