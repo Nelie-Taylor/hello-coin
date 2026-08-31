@@ -52,6 +52,7 @@
         },
         options: {
           animation: false,
+          interaction: { mode: "index", intersect: false },
           scales: {
             x: { display: false },
             y: {
@@ -64,7 +65,32 @@
               grid: { drawOnChartArea: false },
             },
           },
-          plugins: { legend: { labels: { boxWidth: 10 } } },
+          plugins: {
+            legend: { labels: { boxWidth: 10 } },
+            tooltip: {
+              callbacks: {
+                title: function (items) {
+                  var row = history[items[0].dataIndex];
+                  return new Date(row.timestamp).toLocaleString();
+                },
+                label: function (item) {
+                  var row = history[item.dataIndex];
+                  if (item.dataset.label === "LONG %") {
+                    return "LONG " + (row.long_pct * 100).toFixed(1) + "% ($"
+                      + Math.round(row.long_usd).toLocaleString() + ")";
+                  }
+                  if (item.dataset.label === "SHORT %") {
+                    return "SHORT " + (row.short_pct * 100).toFixed(1) + "% ($"
+                      + Math.round(row.short_usd).toLocaleString() + ")";
+                  }
+                  if (row.price == null) {
+                    return "Price: N/A";
+                  }
+                  return "Price: $" + row.price.toLocaleString();
+                },
+              },
+            },
+          },
         },
       });
     });
