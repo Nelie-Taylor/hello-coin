@@ -250,3 +250,29 @@ def test_load_snapshot_includes_skew_history_per_coin():
     snapshot = service.load_snapshot("BTCUSDT", [], now=NOW)
 
     assert [row["long_pct"] for row in snapshot.coin_positions[0].skew_history] == [0.8, 0.7]
+
+
+def test_load_snapshot_includes_price_history():
+    service, whale_storage, technical_storage = _service()
+    technical_storage.insert_snapshot(_technical_snapshot())
+    technical_storage.insert_snapshot(
+        IndicatorSnapshot(
+            symbol="BTCUSDT",
+            timeframe="1h",
+            timestamp=NOW - timedelta(hours=1),
+            close_price=90.0,
+            rsi=None,
+            macd_line=None,
+            macd_signal=None,
+            macd_histogram=None,
+            bb_upper=None,
+            bb_middle=None,
+            bb_lower=None,
+            ema=None,
+            atr=None,
+        )
+    )
+
+    snapshot = service.load_snapshot("BTCUSDT", [], now=NOW)
+
+    assert [row["close_price"] for row in snapshot.price_history] == [90.0, 100.0]

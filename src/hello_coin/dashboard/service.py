@@ -50,6 +50,11 @@ class DashboardService:
         bias = compute_market_bias(compute_whale_score(events, metrics), technical_score)
         coin_positions = self._load_coin_positions(sources, now)
         activity_symbols = list(dict.fromkeys([asset, *self._hyperdash_watch_coins]))
+        # 30 days matches the skew charts' lookback window, for a consistent dashboard feel.
+        price_since = now - timedelta(days=30)
+        price_history = tuple(
+            self._technical_storage.recent_snapshots(symbol, self._timeframe, price_since)
+        )
         return DashboardSnapshot(
             symbol=symbol,
             technical=technical,
@@ -58,6 +63,7 @@ class DashboardService:
             source_statuses=tuple(self._source_status(source, now) for source in sources),
             refreshed_at=now,
             coin_positions=coin_positions,
+            price_history=price_history,
         )
 
     def _load_coin_positions(

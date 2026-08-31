@@ -38,6 +38,7 @@ class DashboardSnapshot:
     source_statuses: tuple[SourceStatus, ...]
     refreshed_at: datetime
     coin_positions: tuple[CoinPositionTable, ...] = ()
+    price_history: tuple[dict[str, Any], ...] = ()
 
 
 def compute_market_bias(whale_score: float | None, technical_score: float | None) -> MarketBias:
