@@ -55,6 +55,28 @@ def test_insert_metrics_returns_count_and_dedupes():
     assert inserted_second == 0
 
 
+def test_recent_events_uses_an_index_instead_of_scanning_the_table():
+    storage = WhaleStorage(":memory:")
+
+    plan = storage._conn.execute(
+        "EXPLAIN QUERY PLAN "
+        "SELECT * FROM whale_events WHERE symbol = 'BTC' COLLATE NOCASE AND timestamp >= '2026-01-01'"
+    ).fetchall()
+
+    assert any("USING INDEX" in str(step) for step in plan)
+
+
+def test_recent_metrics_uses_an_index_instead_of_scanning_the_table():
+    storage = WhaleStorage(":memory:")
+
+    plan = storage._conn.execute(
+        "EXPLAIN QUERY PLAN "
+        "SELECT * FROM whale_metrics WHERE symbol = 'BTCUSDT' COLLATE NOCASE AND timestamp >= '2026-01-01'"
+    ).fetchall()
+
+    assert any("USING INDEX" in str(step) for step in plan)
+
+
 def test_recent_events_filters_by_symbol_case_insensitive_and_since():
     storage = WhaleStorage(":memory:")
     old_event = _event("a")  # symbol="BTC", timestamp=2026-08-22 (see _event() above)

@@ -52,6 +52,22 @@ CREATE TABLE IF NOT EXISTS coin_skew_snapshots (
 )
 """
 
+# Every read below filters with `COLLATE NOCASE`, so the index must be built with the same
+# collation — an index on the plain column can't be used by a NOCASE-collated comparison, which
+# silently falls back to a full table scan.
+_EVENTS_SYMBOL_INDEX = (
+    "CREATE INDEX IF NOT EXISTS idx_whale_events_symbol_timestamp "
+    "ON whale_events(symbol COLLATE NOCASE, timestamp)"
+)
+_METRICS_SYMBOL_INDEX = (
+    "CREATE INDEX IF NOT EXISTS idx_whale_metrics_symbol_timestamp "
+    "ON whale_metrics(symbol COLLATE NOCASE, timestamp)"
+)
+_SKEW_SNAPSHOTS_COIN_INDEX = (
+    "CREATE INDEX IF NOT EXISTS idx_coin_skew_snapshots_coin_timestamp "
+    "ON coin_skew_snapshots(coin COLLATE NOCASE, timestamp)"
+)
+
 _SKEW_SNAPSHOT_COLUMNS = ("coin", "timestamp", "long_usd", "short_usd", "long_pct", "short_pct")
 
 _EVENT_COLUMNS = (
@@ -81,6 +97,9 @@ class WhaleStorage:
         self._conn.execute(_EVENTS_SCHEMA)
         self._conn.execute(_METRICS_SCHEMA)
         self._conn.execute(_SKEW_SNAPSHOTS_SCHEMA)
+        self._conn.execute(_EVENTS_SYMBOL_INDEX)
+        self._conn.execute(_METRICS_SYMBOL_INDEX)
+        self._conn.execute(_SKEW_SNAPSHOTS_COIN_INDEX)
         self._conn.commit()
 
     def close(self) -> None:
