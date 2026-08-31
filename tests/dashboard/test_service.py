@@ -253,7 +253,7 @@ def test_load_snapshot_includes_skew_history_per_coin():
 
 
 def test_load_snapshot_includes_price_history():
-    service, whale_storage, technical_storage = _service()
+    service, _, technical_storage = _service()
     technical_storage.insert_snapshot(_technical_snapshot())
     technical_storage.insert_snapshot(
         IndicatorSnapshot(
