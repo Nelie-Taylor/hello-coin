@@ -170,7 +170,18 @@ class HyperdashAdapter(Adapter):
                             "last_success_at": self.coin_statuses[coin].get("last_success_at"),
                         }
 
-            self._update_skew(observed, now)
+            prices: dict[str, float] = {}
+            try:
+                response = await client.post(HYPERLIQUID_INFO_URL, json={"type": "allMids"})
+                response.raise_for_status()
+                for coin, value in response.json().items():
+                    parsed = _number(value)
+                    if parsed is not None:
+                        prices[str(coin).upper()] = parsed
+            except (httpx.HTTPError, AttributeError, TypeError, ValueError):
+                pass
+
+            self._update_skew(observed, now, prices)
             for address, coin in confirmed:
                 if (address, coin) not in observed:
                     self._active_wallets_by_coin[coin].discard(address)
@@ -179,7 +190,10 @@ class HyperdashAdapter(Adapter):
         return events
 
     def _update_skew(
-        self, observed: dict[tuple[str, str], WhaleEvent], now: datetime
+        self,
+        observed: dict[tuple[str, str], WhaleEvent],
+        now: datetime,
+        prices: dict[str, float],
     ) -> None:
         totals: dict[str, tuple[float, float]] = {}
         for (_, coin), event in observed.items():
@@ -204,7 +218,9 @@ class HyperdashAdapter(Adapter):
             if due:
                 long_pct, short_pct = compute_skew(long_usd, short_usd)
                 self._pending_skew_snapshots.append(
-                    SkewSnapshot(coin, now, long_usd, short_usd, long_pct, short_pct)
+                    SkewSnapshot(
+                        coin, now, long_usd, short_usd, long_pct, short_pct, prices.get(coin)
+                    )
                 )
                 self._last_skew_snapshot_at[coin] = now
 

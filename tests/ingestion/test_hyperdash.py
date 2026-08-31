@@ -79,7 +79,11 @@ async def test_fetch_filters_deltas_and_deduplicates_wallet_state_requests():
     events = await adapter.fetch()
 
     assert len(events) == 1
-    assert state.call_count == 1
+    wallet_state_calls = [
+        call for call in state.calls
+        if json.loads(call.request.content).get("type") == "clearinghouseState"
+    ]
+    assert len(wallet_state_calls) == 1
     assert json.loads(graphql.calls[0].request.content)["variables"]["market"] == "LINK"
     assert json.loads(graphql.calls[1].request.content)["variables"]["market"] == "SOL"
     assert graphql.calls[0].request.headers["origin"] == "https://hyperdash.com"
@@ -143,13 +147,23 @@ async def test_fetch_emits_exit_alert_when_dominant_wallet_closes_its_position()
         httpx.Response(200, json={"data": {"perpDeltas": {"deltas": [{"address": wallet, "current": 800_000}]}}}),
         httpx.Response(200, json={"data": {"perpDeltas": {"deltas": []}}}),
     ]
-    state = respx.post(HYPERLIQUID_INFO_URL)
-    state.side_effect = [
+    clearinghouse_responses = [
         httpx.Response(200, json={
             "assetPositions": [{"position": {"coin": "LINK", "szi": "10", "positionValue": "800000"}}]
         }),
         httpx.Response(200, json={"assetPositions": []}),
     ]
+    clearinghouse_calls = {"count": 0}
+
+    def hyperliquid_router(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        if body.get("type") == "allMids":
+            return httpx.Response(200, json={})
+        response = clearinghouse_responses[clearinghouse_calls["count"]]
+        clearinghouse_calls["count"] += 1
+        return response
+
+    respx.post(HYPERLIQUID_INFO_URL).mock(side_effect=hyperliquid_router)
     adapter = HyperdashAdapter(
         Settings(_env_file=None, hyperdash_api_token="token", hyperdash_watch_coins=["LINK"])
     )
@@ -199,7 +213,7 @@ def test_update_skew_queues_snapshot_for_every_watched_coin_including_zero_posit
     adapter = _adapter(coins=["LINK", "SOL"])
     now = datetime(2026, 8, 31, 0, 0, tzinfo=UTC)
 
-    adapter._update_skew({}, now)
+    adapter._update_skew({}, now, {})
 
     snapshots = adapter.consume_skew_snapshots()
     assert {snapshot.coin for snapshot in snapshots} == {"LINK", "SOL"}
@@ -211,10 +225,10 @@ def test_update_skew_throttles_snapshots_within_five_minutes():
     adapter = _adapter()
     now = datetime(2026, 8, 31, 0, 0, tzinfo=UTC)
     event = _position_event("LINK", "buy", 800_000.0)
-    adapter._update_skew({("0xabc", "LINK"): event}, now)
+    adapter._update_skew({("0xabc", "LINK"): event}, now, {})
     adapter.consume_skew_snapshots()
 
-    adapter._update_skew({("0xabc", "LINK"): event}, now + timedelta(minutes=4))
+    adapter._update_skew({("0xabc", "LINK"): event}, now + timedelta(minutes=4), {})
 
     assert adapter.consume_skew_snapshots() == []
 
@@ -223,13 +237,83 @@ def test_update_skew_emits_new_snapshot_after_five_minutes():
     adapter = _adapter()
     now = datetime(2026, 8, 31, 0, 0, tzinfo=UTC)
     event = _position_event("LINK", "buy", 800_000.0)
-    adapter._update_skew({("0xabc", "LINK"): event}, now)
+    adapter._update_skew({("0xabc", "LINK"): event}, now, {})
     adapter.consume_skew_snapshots()
 
     later = now + timedelta(minutes=5)
-    adapter._update_skew({("0xabc", "LINK"): event}, later)
+    adapter._update_skew({("0xabc", "LINK"): event}, later, {})
 
     snapshots = adapter.consume_skew_snapshots()
     assert [snapshot.coin for snapshot in snapshots] == ["LINK"]
     assert snapshots[0].timestamp == later
     assert snapshots[0].long_pct == 1.0
+
+
+def test_update_skew_attaches_price_from_prices_dict():
+    adapter = _adapter(coins=["LINK", "SOL"])
+    now = datetime(2026, 8, 31, 0, 0, tzinfo=UTC)
+
+    adapter._update_skew({}, now, {"LINK": 10.52})
+
+    snapshots = {snapshot.coin: snapshot for snapshot in adapter.consume_skew_snapshots()}
+    assert snapshots["LINK"].price == 10.52
+    assert snapshots["SOL"].price is None
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_fetch_attaches_price_from_hyperliquid_all_mids():
+    wallet = "0x8888888888888888888888888888888888888888"
+    respx.post(HYPERDASH_GRAPHQL_URL).mock(
+        return_value=httpx.Response(
+            200, json={"data": {"perpDeltas": {"deltas": [{"address": wallet, "current": 800_000}]}}}
+        )
+    )
+
+    def hyperliquid_router(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        if body.get("type") == "allMids":
+            return httpx.Response(200, json={"LINK": "10.52"})
+        return httpx.Response(200, json={
+            "assetPositions": [{"position": {"coin": "LINK", "szi": "10", "positionValue": "800000"}}]
+        })
+
+    respx.post(HYPERLIQUID_INFO_URL).mock(side_effect=hyperliquid_router)
+    adapter = HyperdashAdapter(
+        Settings(_env_file=None, hyperdash_api_token="token", hyperdash_watch_coins=["LINK"])
+    )
+
+    await adapter.fetch()
+
+    snapshots = adapter.consume_skew_snapshots()
+    assert snapshots[0].price == 10.52
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_fetch_leaves_price_none_when_all_mids_request_fails():
+    wallet = "0x9999999999999999999999999999999999999999"
+    respx.post(HYPERDASH_GRAPHQL_URL).mock(
+        return_value=httpx.Response(
+            200, json={"data": {"perpDeltas": {"deltas": [{"address": wallet, "current": 800_000}]}}}
+        )
+    )
+
+    def hyperliquid_router(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        if body.get("type") == "allMids":
+            return httpx.Response(500)
+        return httpx.Response(200, json={
+            "assetPositions": [{"position": {"coin": "LINK", "szi": "10", "positionValue": "800000"}}]
+        })
+
+    respx.post(HYPERLIQUID_INFO_URL).mock(side_effect=hyperliquid_router)
+    adapter = HyperdashAdapter(
+        Settings(_env_file=None, hyperdash_api_token="token", hyperdash_watch_coins=["LINK"])
+    )
+
+    events = await adapter.fetch()
+
+    assert len(events) == 1  # position events still produced despite allMids failing
+    snapshots = adapter.consume_skew_snapshots()
+    assert snapshots[0].price is None
