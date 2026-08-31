@@ -118,6 +118,7 @@ class _CoinDashboardService(_DashboardService):
                     skew_history=({
                         "coin": "LINK", "timestamp": now.isoformat(), "long_usd": 800_000.0,
                         "short_usd": 200_000.0, "long_pct": 0.8, "short_pct": 0.2,
+                        "price": 10.52,
                     },),
                 ),
                 CoinPositionTable("SOL", (), SourceStatus("hyperdash", "STALE", now, "no fresh positions")),
@@ -263,3 +264,4 @@ def test_panels_renders_skew_chart_canvas_with_history_data():
     assert 'id="coin-link-skew-chart"' in response.text
     assert 'class="skew-chart"' in response.text
     assert "0.8" in response.text
+    assert "10.52" in response.text

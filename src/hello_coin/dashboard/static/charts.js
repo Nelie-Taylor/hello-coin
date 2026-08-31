@@ -39,6 +39,15 @@
               pointRadius: 0,
               borderWidth: 1.5,
             },
+            {
+              label: "Price",
+              data: history.map(function (row) { return row.price; }),
+              borderColor: "#60a5fa",
+              backgroundColor: "#60a5fa",
+              pointRadius: 0,
+              borderWidth: 1.5,
+              yAxisID: "y1",
+            },
           ],
         },
         options: {
@@ -49,6 +58,10 @@
               min: 0,
               max: 100,
               ticks: { callback: function (value) { return value + "%"; } },
+            },
+            y1: {
+              position: "right",
+              grid: { drawOnChartArea: false },
             },
           },
           plugins: { legend: { labels: { boxWidth: 10 } } },
