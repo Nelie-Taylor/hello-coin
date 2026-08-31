@@ -218,3 +218,25 @@ def test_recent_skew_history_filters_by_coin_case_insensitive_since_ordered_asce
     rows = storage.recent_skew_history("link", since=datetime(2026, 8, 31, tzinfo=UTC))
 
     assert [row["long_pct"] for row in rows] == [0.6, 0.7]
+
+
+def test_insert_skew_snapshots_persists_and_round_trips_price():
+    storage = WhaleStorage(":memory:")
+    snapshot = SkewSnapshot(
+        "LINK", datetime(2026, 8, 31, tzinfo=UTC), 800_000.0, 200_000.0, 0.8, 0.2, price=10.52
+    )
+
+    storage.insert_skew_snapshots([snapshot])
+
+    rows = storage.recent_skew_history("LINK", since=datetime(2020, 1, 1, tzinfo=UTC))
+    assert rows[0]["price"] == 10.52
+
+
+def test_insert_skew_snapshots_stores_none_price_as_null():
+    storage = WhaleStorage(":memory:")
+    snapshot = _skew_snapshot("LINK", datetime(2026, 8, 31, tzinfo=UTC))  # price defaults to None
+
+    storage.insert_skew_snapshots([snapshot])
+
+    rows = storage.recent_skew_history("LINK", since=datetime(2020, 1, 1, tzinfo=UTC))
+    assert rows[0]["price"] is None

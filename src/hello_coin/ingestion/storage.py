@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS coin_skew_snapshots (
     short_usd REAL NOT NULL,
     long_pct REAL NOT NULL,
     short_pct REAL NOT NULL,
+    price REAL,
     UNIQUE(coin, timestamp)
 )
 """
@@ -68,7 +69,15 @@ _SKEW_SNAPSHOTS_COIN_INDEX = (
     "ON coin_skew_snapshots(coin COLLATE NOCASE, timestamp)"
 )
 
-_SKEW_SNAPSHOT_COLUMNS = ("coin", "timestamp", "long_usd", "short_usd", "long_pct", "short_pct")
+_SKEW_SNAPSHOT_COLUMNS = (
+    "coin",
+    "timestamp",
+    "long_usd",
+    "short_usd",
+    "long_pct",
+    "short_pct",
+    "price",
+)
 
 _EVENT_COLUMNS = (
     "source",
@@ -97,6 +106,10 @@ class WhaleStorage:
         self._conn.execute(_EVENTS_SCHEMA)
         self._conn.execute(_METRICS_SCHEMA)
         self._conn.execute(_SKEW_SNAPSHOTS_SCHEMA)
+        try:
+            self._conn.execute("ALTER TABLE coin_skew_snapshots ADD COLUMN price REAL")
+        except sqlite3.OperationalError:
+            pass  # already migrated, or the table was just created with the column present
         self._conn.execute(_EVENTS_SYMBOL_INDEX)
         self._conn.execute(_METRICS_SYMBOL_INDEX)
         self._conn.execute(_SKEW_SNAPSHOTS_COIN_INDEX)
@@ -213,8 +226,8 @@ class WhaleStorage:
             cursor = self._conn.execute(
                 """
                 INSERT OR IGNORE INTO coin_skew_snapshots
-                    (coin, timestamp, long_usd, short_usd, long_pct, short_pct)
-                VALUES (?, ?, ?, ?, ?, ?)
+                    (coin, timestamp, long_usd, short_usd, long_pct, short_pct, price)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     snapshot.coin,
@@ -223,6 +236,7 @@ class WhaleStorage:
                     snapshot.short_usd,
                     snapshot.long_pct,
                     snapshot.short_pct,
+                    snapshot.price,
                 ),
             )
             inserted += cursor.rowcount
@@ -240,7 +254,7 @@ class WhaleStorage:
     def recent_skew_history(self, coin: str, since: datetime) -> list[dict]:
         rows = self._conn.execute(
             """
-            SELECT coin, timestamp, long_usd, short_usd, long_pct, short_pct
+            SELECT coin, timestamp, long_usd, short_usd, long_pct, short_pct, price
             FROM coin_skew_snapshots
             WHERE coin = ? COLLATE NOCASE AND timestamp >= ?
             ORDER BY timestamp ASC
