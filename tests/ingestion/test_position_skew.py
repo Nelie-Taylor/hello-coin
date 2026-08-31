@@ -108,3 +108,30 @@ def test_skew_snapshot_holds_coin_timestamp_and_percentages():
     assert snapshot.coin == "LINK"
     assert snapshot.long_pct == 0.8
     assert snapshot.short_pct == 0.2
+
+
+def test_skew_snapshot_price_defaults_to_none():
+    snapshot = SkewSnapshot(
+        coin="LINK",
+        timestamp=datetime(2026, 8, 31, tzinfo=UTC),
+        long_usd=800_000.0,
+        short_usd=200_000.0,
+        long_pct=0.8,
+        short_pct=0.2,
+    )
+
+    assert snapshot.price is None
+
+
+def test_skew_snapshot_accepts_explicit_price():
+    snapshot = SkewSnapshot(
+        coin="LINK",
+        timestamp=datetime(2026, 8, 31, tzinfo=UTC),
+        long_usd=800_000.0,
+        short_usd=200_000.0,
+        long_pct=0.8,
+        short_pct=0.2,
+        price=10.52,
+    )
+
+    assert snapshot.price == 10.52

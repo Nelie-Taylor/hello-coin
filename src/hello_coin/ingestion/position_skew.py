@@ -49,6 +49,7 @@ class SkewSnapshot:
     short_usd: float
     long_pct: float
     short_pct: float
+    price: float | None = None
 
 
 class SkewTracker:
