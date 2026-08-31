@@ -57,3 +57,45 @@ def test_latest_snapshot_returns_none_when_no_rows():
     storage = TechnicalStorage(":memory:")
 
     assert storage.latest_snapshot("ETHUSDT", "1h") is None
+
+
+def test_recent_snapshots_uses_an_index_instead_of_scanning_the_table():
+    storage = TechnicalStorage(":memory:")
+
+    plan = storage._conn.execute(
+        "EXPLAIN QUERY PLAN "
+        "SELECT * FROM technical_snapshots WHERE symbol = 'BTCUSDT' AND timeframe = '1h' "
+        "AND timestamp >= '2026-01-01'"
+    ).fetchall()
+
+    assert any("USING INDEX" in str(step) for step in plan)
+
+
+def test_recent_snapshots_filters_by_symbol_timeframe_and_since_ordered_ascending():
+    storage = TechnicalStorage(":memory:")
+    storage.insert_snapshot(_snapshot(datetime(2026, 8, 22, 0, tzinfo=UTC)))
+    storage.insert_snapshot(_snapshot(datetime(2026, 8, 22, 1, tzinfo=UTC)))
+    storage.insert_snapshot(
+        IndicatorSnapshot(
+            symbol="BTCUSDT",
+            timeframe="4h",
+            timestamp=datetime(2026, 8, 22, 1, tzinfo=UTC),
+            close_price=200.0,
+            rsi=None,
+            macd_line=None,
+            macd_signal=None,
+            macd_histogram=None,
+            bb_upper=None,
+            bb_middle=None,
+            bb_lower=None,
+            ema=None,
+            atr=None,
+        )
+    )
+
+    rows = storage.recent_snapshots("BTCUSDT", "1h", since=datetime(2026, 8, 21, tzinfo=UTC))
+
+    assert [row["timestamp"] for row in rows] == [
+        "2026-08-22T00:00:00+00:00",
+        "2026-08-22T01:00:00+00:00",
+    ]
