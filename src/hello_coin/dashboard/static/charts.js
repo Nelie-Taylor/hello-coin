@@ -57,11 +57,57 @@
     });
   }
 
+  function renderPriceChart() {
+    var canvas = document.getElementById("price-chart");
+    if (!canvas) {
+      return;
+    }
+    var existing = charts[canvas.id];
+    if (existing) {
+      existing.destroy();
+      delete charts[canvas.id];
+    }
+    var history;
+    try {
+      history = JSON.parse(canvas.dataset.price || "[]");
+    } catch (error) {
+      history = [];
+    }
+    if (!history.length) {
+      return;
+    }
+    charts[canvas.id] = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels: history.map(function (row) { return row.timestamp; }),
+        datasets: [
+          {
+            label: "Close",
+            data: history.map(function (row) { return row.close_price; }),
+            borderColor: "#60a5fa",
+            backgroundColor: "#60a5fa",
+            pointRadius: 0,
+            borderWidth: 1.5,
+          },
+        ],
+      },
+      options: {
+        animation: false,
+        scales: {
+          x: { display: false },
+        },
+        plugins: { legend: { labels: { boxWidth: 10 } } },
+      },
+    });
+  }
+
   renderSkewCharts();
+  renderPriceChart();
 
   document.body.addEventListener("htmx:afterSwap", function (event) {
     if (event.detail && event.detail.target && event.detail.target.id === "panels") {
       renderSkewCharts();
+      renderPriceChart();
     }
   });
 })();
