@@ -84,12 +84,6 @@ main.grid {
   margin-bottom: 0.75rem;
 }
 
-.price-chart {
-  width: 100%;
-  max-height: 160px;
-  margin-bottom: 0.75rem;
-}
-
 .whale-activity-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;

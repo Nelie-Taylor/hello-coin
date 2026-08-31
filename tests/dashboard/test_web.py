@@ -127,23 +127,6 @@ class _CoinDashboardService(_DashboardService):
         )
 
 
-class _PriceHistoryDashboardService(_DashboardService):
-    def load_snapshot(self, symbol: str, sources: list[object], now: datetime) -> DashboardSnapshot:
-        self.calls.append(symbol)
-        return DashboardSnapshot(
-            symbol=symbol,
-            technical=None,
-            whale_events=(),
-            bias=MarketBias(None, None, None, "INSUFFICIENT DATA"),
-            source_statuses=(),
-            refreshed_at=now,
-            price_history=({
-                "symbol": symbol, "timeframe": "1h", "timestamp": now.isoformat(),
-                "close_price": 79249.1,
-            },),
-        )
-
-
 class _FailingDashboardService(_DashboardService):
     def load_snapshot(self, symbol: str, sources: list[object], now: datetime) -> DashboardSnapshot:
         raise RuntimeError("db locked")
@@ -266,20 +249,6 @@ def test_panels_shows_refresh_error_without_500():
     assert response.status_code == 200
     assert "Refresh error" in response.text
     assert "db locked" in response.text
-
-
-def test_panels_renders_price_chart_canvas_with_history_data():
-    app = create_app(
-        _settings("BTCUSDT"), adapters=[], service=_PriceHistoryDashboardService(), start_workers=False
-    )
-
-    with TestClient(app) as client:
-        response = client.get("/panels?symbol=BTCUSDT")
-
-    assert response.status_code == 200
-    assert 'id="price-chart"' in response.text
-    assert 'class="price-chart"' in response.text
-    assert "79249.1" in response.text
 
 
 def test_panels_renders_skew_chart_canvas_with_history_data():

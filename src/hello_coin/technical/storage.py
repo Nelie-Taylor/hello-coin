@@ -1,6 +1,5 @@
 import json
 import sqlite3
-from datetime import datetime
 from pathlib import Path
 
 from hello_coin.technical.models import IndicatorSnapshot
@@ -110,32 +109,3 @@ class TechnicalStorage:
             "raw",
         )
         return dict(zip(columns, row, strict=True))
-
-    def recent_snapshots(self, symbol: str, timeframe: str, since: datetime) -> list[dict]:
-        rows = self._conn.execute(
-            """
-            SELECT symbol, timeframe, timestamp, close_price, rsi, macd_line, macd_signal,
-                   macd_histogram, bb_upper, bb_middle, bb_lower, ema, atr, raw
-            FROM technical_snapshots
-            WHERE symbol = ? AND timeframe = ? AND timestamp >= ?
-            ORDER BY timestamp ASC
-            """,
-            (symbol, timeframe, since.isoformat()),
-        ).fetchall()
-        columns = (
-            "symbol",
-            "timeframe",
-            "timestamp",
-            "close_price",
-            "rsi",
-            "macd_line",
-            "macd_signal",
-            "macd_histogram",
-            "bb_upper",
-            "bb_middle",
-            "bb_lower",
-            "ema",
-            "atr",
-            "raw",
-        )
-        return [dict(zip(columns, row, strict=True)) for row in rows]

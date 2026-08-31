@@ -8,8 +8,6 @@
   <h2>{{ snapshot.symbol }} &middot; Market overview</h2>
   <p>Close: {{ format_number(snapshot.technical.get("close_price") if snapshot.technical else None) }}</p>
   <p>Timeframe: {{ settings.technical_timeframe }}</p>
-  <canvas id="price-chart" class="price-chart"
-          data-price='{{ snapshot.price_history | tojson }}'></canvas>
 </div>
 
 <div id="technical" class="panel">
