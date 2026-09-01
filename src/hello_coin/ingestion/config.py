@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     hyperdash_api_token: str | None = None
     hyperdash_watch_coins: Annotated[list[str], NoDecode] = ["LINK", "SOL", "SUI", "NEAR", "HYPE"]
     hyperdash_delta_timeframe: str = "FIFTEEN_MINUTES"
-    hyperdash_min_delta_usd: int = 50_000
-    hyperdash_min_position_usd: int = 50_000
+    hyperdash_min_delta_usd: int = 10_000
+    hyperdash_min_position_usd: int = 10_000
 
     technical_timeframe: str = "1h"
 

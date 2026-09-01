@@ -95,8 +95,8 @@ def test_hyperdash_settings_defaults(monkeypatch):
     assert settings.hyperdash_api_token is None
     assert settings.hyperdash_watch_coins == ["LINK", "SOL", "SUI", "NEAR", "HYPE"]
     assert settings.hyperdash_delta_timeframe == "FIFTEEN_MINUTES"
-    assert settings.hyperdash_min_delta_usd == 50_000
-    assert settings.hyperdash_min_position_usd == 50_000
+    assert settings.hyperdash_min_delta_usd == 10_000
+    assert settings.hyperdash_min_position_usd == 10_000
 
 
 def test_hyperdash_settings_parse_environment(monkeypatch):
