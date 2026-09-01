@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from fastapi.testclient import TestClient
 
@@ -22,8 +22,7 @@ class _DashboardService:
         return DashboardSnapshot(
             symbol=symbol,
             technical=None,
-            whale_events=(),
-            bias=MarketBias(None, None, None, "INSUFFICIENT DATA"),
+            bias=MarketBias(None, None, "INSUFFICIENT DATA"),
             source_statuses=(),
             refreshed_at=now,
         )
@@ -32,77 +31,12 @@ class _DashboardService:
         self.closed = True
 
 
-class _ActivityDashboardService(_DashboardService):
-    def load_snapshot(self, symbol: str, sources: list[object], now: datetime) -> DashboardSnapshot:
-        self.calls.append(symbol)
-        return DashboardSnapshot(
-            symbol=symbol,
-            technical=None,
-            whale_events=(
-                {
-                    "timestamp": "2026-08-29T00:00:00+00:00",
-                    "source": "hyperliquid",
-                    "symbol": "BTC",
-                    "event_type": "fill",
-                    "side": "buy",
-                    "amount_usd": 100_000.0,
-                    "raw": '{"leverage": {"type": "cross", "value": 7}}',
-                },
-                {
-                    "timestamp": "2026-08-29T00:00:01+00:00",
-                    "source": "whale_alert",
-                    "symbol": "BTC",
-                    "event_type": "transfer",
-                    "side": None,
-                    "amount_usd": 50_000.0,
-                    "raw": "{}",
-                },
-            ),
-            bias=MarketBias(None, None, None, "INSUFFICIENT DATA"),
-            source_statuses=(),
-            refreshed_at=now,
-        )
-
-
-class _RecentActivityDashboardService(_DashboardService):
-    def load_snapshot(self, symbol: str, sources: list[object], now: datetime) -> DashboardSnapshot:
-        self.calls.append(symbol)
-        return DashboardSnapshot(
-            symbol=symbol,
-            technical=None,
-            whale_events=(
-                {
-                    "timestamp": (now - timedelta(minutes=5)).isoformat(),
-                    "source": "hyperliquid",
-                    "symbol": "BTC",
-                    "event_type": "fill",
-                    "side": "buy",
-                    "amount_usd": 100_000.0,
-                    "raw": '{"leverage": {"type": "cross", "value": 7}}',
-                },
-                {
-                    "timestamp": (now - timedelta(hours=2)).isoformat(),
-                    "source": "whale_alert",
-                    "symbol": "BTC",
-                    "event_type": "transfer",
-                    "side": None,
-                    "amount_usd": 50_000.0,
-                    "raw": "{}",
-                },
-            ),
-            bias=MarketBias(None, None, None, "INSUFFICIENT DATA"),
-            source_statuses=(),
-            refreshed_at=now,
-        )
-
-
 class _CoinDashboardService(_DashboardService):
     def load_snapshot(self, symbol: str, sources: list[object], now: datetime) -> DashboardSnapshot:
         return DashboardSnapshot(
             symbol=symbol,
             technical=None,
-            whale_events=(),
-            bias=MarketBias(None, None, None, "INSUFFICIENT DATA"),
+            bias=MarketBias(None, None, "INSUFFICIENT DATA"),
             source_statuses=(),
             refreshed_at=now,
             coin_positions=(
@@ -170,47 +104,6 @@ def test_panels_endpoint_returns_fresh_snapshot_fragment():
     assert response.status_code == 200
     assert "INSUFFICIENT DATA" in response.text
     assert service.calls == ["BTCUSDT"]
-
-
-def test_panels_renders_direction_and_available_leverage_for_whale_events():
-    app = create_app(
-        _settings("BTCUSDT"), adapters=[], service=_ActivityDashboardService(), start_workers=False
-    )
-
-    with TestClient(app) as client:
-        response = client.get("/panels?symbol=BTCUSDT")
-
-    assert "LONG (BUY)" in response.text
-    assert "Leverage: 7x" in response.text
-    assert "Leverage: N/A" in response.text
-
-
-def test_panels_splits_whale_activity_into_all_and_recent_columns():
-    app = create_app(
-        _settings("BTCUSDT"), adapters=[], service=_RecentActivityDashboardService(), start_workers=False
-    )
-
-    with TestClient(app) as client:
-        response = client.get("/panels?symbol=BTCUSDT")
-
-    assert response.status_code == 200
-    assert "All activity" in response.text
-    assert "Recent (last 15m)" in response.text
-    # the 5-minute-old event shows in both columns; the 2-hour-old event only in "All activity"
-    assert response.text.count("hyperliquid") == 2
-    assert response.text.count("whale_alert") == 1
-
-
-def test_panels_shows_empty_state_when_no_recent_whale_activity():
-    app = create_app(
-        _settings("BTCUSDT"), adapters=[], service=_ActivityDashboardService(), start_workers=False
-    )
-
-    with TestClient(app) as client:
-        response = client.get("/panels?symbol=BTCUSDT")
-
-    assert response.status_code == 200
-    assert "No whale orders in the last 15 minutes." in response.text
 
 
 def test_panels_renders_one_position_table_per_coin():

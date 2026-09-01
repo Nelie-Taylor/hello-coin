@@ -48,7 +48,8 @@ class DecisionStorage:
             (
                 decision.symbol,
                 decision.timestamp.isoformat(),
-                decision.whale_score,
+                # Legacy column from the whale-signal era; kept nullable so old rows stay valid.
+                None,
                 decision.technical_score,
                 decision.liquidation_score,
                 decision.weighted_score,

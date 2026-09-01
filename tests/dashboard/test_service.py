@@ -33,25 +33,9 @@ def _technical_snapshot() -> IndicatorSnapshot:
     )
 
 
-def _whale_event() -> WhaleEvent:
-    return WhaleEvent(
-        source="binance",
-        timestamp=NOW,
-        chain_or_exchange="binance",
-        symbol="BTC",
-        event_type="fill",
-        side="buy",
-        amount=1.0,
-        amount_usd=100_000.0,
-        wallet_address=None,
-        dedup_key="latest",
-        raw={},
-    )
-
-
 def _source(**overrides: object) -> SimpleNamespace:
     values = {
-        "name": "binance",
+        "name": "hyperdash",
         "poll_interval_seconds": 60,
         "last_success_at": NOW - timedelta(seconds=30),
         "last_error": None,
@@ -65,19 +49,18 @@ def _service() -> tuple[DashboardService, WhaleStorage, TechnicalStorage]:
     whale_storage = WhaleStorage(":memory:")
     technical_storage = TechnicalStorage(":memory:")
     return (
-        DashboardService(whale_storage, technical_storage, timeframe="1h", lookback_hours=24),
+        DashboardService(whale_storage, technical_storage, timeframe="1h"),
         whale_storage,
         technical_storage,
     )
 
 
 def test_load_snapshot_groups_fresh_hyperdash_positions_per_coin():
-    service, whale_storage, _ = _service()
+    whale_storage = WhaleStorage(":memory:")
     service = DashboardService(
         whale_storage,
         TechnicalStorage(":memory:"),
         timeframe="1h",
-        lookback_hours=24,
         hyperdash_watch_coins=["LINK", "SOL", "SUI", "NEAR", "HYPE"],
     )
     whale_storage.insert_events([
@@ -87,7 +70,6 @@ def test_load_snapshot_groups_fresh_hyperdash_positions_per_coin():
             wallet_address="0x1234567890abcdef", dedup_key="p1",
             raw={"entryPx": "10", "leverage": {"type": "cross", "value": 7}},
         ),
-        _whale_event(),
     ])
 
     snapshot = service.load_snapshot("BTCUSDT", [], now=NOW)
@@ -99,12 +81,11 @@ def test_load_snapshot_groups_fresh_hyperdash_positions_per_coin():
 
 
 def test_load_snapshot_orders_coin_positions_by_usd_value_descending():
-    service, whale_storage, _ = _service()
+    whale_storage = WhaleStorage(":memory:")
     service = DashboardService(
         whale_storage,
         TechnicalStorage(":memory:"),
         timeframe="1h",
-        lookback_hours=24,
         hyperdash_watch_coins=["LINK"],
     )
     whale_storage.insert_events([
@@ -135,9 +116,9 @@ def test_load_snapshot_orders_coin_positions_by_usd_value_descending():
 
 
 def test_load_snapshot_hides_stale_hyperdash_positions():
-    service, whale_storage, _ = _service()
+    whale_storage = WhaleStorage(":memory:")
     service = DashboardService(
-        whale_storage, TechnicalStorage(":memory:"), timeframe="1h", lookback_hours=24,
+        whale_storage, TechnicalStorage(":memory:"), timeframe="1h",
         hyperdash_watch_coins=["LINK"], position_freshness_seconds=120,
     )
     whale_storage.insert_events([
@@ -159,39 +140,15 @@ def test_load_snapshot_hides_stale_hyperdash_positions():
     assert snapshot.coin_positions[0].status.state == "STALE"
 
 
-def test_load_snapshot_includes_scores_recent_events_and_live_source():
-    service, whale_storage, technical_storage = _service()
-    whale_storage.insert_events([_whale_event()])
+def test_load_snapshot_includes_technical_bias_and_live_source():
+    service, _, technical_storage = _service()
     technical_storage.insert_snapshot(_technical_snapshot())
 
     snapshot = service.load_snapshot("BTCUSDT", [_source()], now=NOW)
 
     assert snapshot.bias.label == "BULLISH BIAS"
-    assert snapshot.whale_events[0]["dedup_key"] == "latest"
+    assert snapshot.bias.technical_score == pytest.approx(0.5166666666666667)
     assert snapshot.source_statuses[0].state == "LIVE"
-
-
-def test_load_snapshot_whale_activity_includes_hyperdash_watch_coins_beyond_selected_symbol():
-    whale_storage = WhaleStorage(":memory:")
-    service = DashboardService(
-        whale_storage,
-        TechnicalStorage(":memory:"),
-        timeframe="1h",
-        lookback_hours=24,
-        hyperdash_watch_coins=["LINK"],
-    )
-    whale_storage.insert_events([
-        _whale_event(),
-        WhaleEvent(
-            source="hyperdash", timestamp=NOW, chain_or_exchange="hyperliquid", symbol="LINK",
-            event_type="position", side="sell", amount=2, amount_usd=125_000,
-            wallet_address="0xdef", dedup_key="link-position", raw={},
-        ),
-    ])
-
-    snapshot = service.load_snapshot("BTCUSDT", [], now=NOW)
-
-    assert {event["dedup_key"] for event in snapshot.whale_events} == {"latest", "link-position"}
 
 
 def test_load_snapshot_marks_source_with_error():
@@ -213,13 +170,13 @@ def test_load_snapshot_marks_stale_source():
     assert snapshot.source_statuses[0].state == "STALE"
 
 
-def test_load_snapshot_keeps_missing_score_as_insufficient_data():
-    service, _, technical_storage = _service()
-    technical_storage.insert_snapshot(_technical_snapshot())
+def test_load_snapshot_reports_insufficient_data_without_technical_snapshot():
+    service, _, _ = _service()
 
     snapshot = service.load_snapshot("BTCUSDT", [], now=NOW)
 
     assert snapshot.bias.label == "INSUFFICIENT DATA"
+    assert snapshot.bias.score is None
 
 
 def test_close_closes_both_storage_connections():
@@ -239,7 +196,6 @@ def test_load_snapshot_includes_skew_history_per_coin():
         whale_storage,
         TechnicalStorage(":memory:"),
         timeframe="1h",
-        lookback_hours=24,
         hyperdash_watch_coins=["LINK"],
     )
     whale_storage.insert_skew_snapshots([

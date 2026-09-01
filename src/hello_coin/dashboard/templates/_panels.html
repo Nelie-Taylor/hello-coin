@@ -21,44 +21,7 @@
   <h2>Market bias</h2>
   <p>{{ snapshot.bias.label }}</p>
   <p>Score: {{ format_number(snapshot.bias.score) }}</p>
-  <p>Whale: {{ format_number(snapshot.bias.whale_score) }} &middot; Technical: {{ format_number(snapshot.bias.technical_score) }}</p>
-</div>
-
-{% macro whale_event_item(event) %}
-<li>
-  {{ event.timestamp }} &middot; {{ event.source }} &middot; {{ event.symbol }} &middot;
-  {{ event.event_type }} &middot; ${{ format_number(event.get("amount_usd")) }}
-  <br>
-  &nbsp;&nbsp;<span class="{{ side_class(event.get("side")) }}">{{ format_direction(event.get("side")) }}</span> &middot; Leverage: {{ format_event_leverage(event.get("raw")) }}
-</li>
-{% endmacro %}
-
-<div id="whale-activity" class="panel span-2">
-  <h2>Whale activity</h2>
-  {% if snapshot.whale_events %}
-  <div class="whale-activity-columns">
-    <div class="whale-activity-col">
-      <h3>All activity</h3>
-      <ul>
-        {% for event in snapshot.whale_events %}
-        {{ whale_event_item(event) }}
-        {% endfor %}
-      </ul>
-    </div>
-    <div id="whale-activity-recent" class="whale-activity-col">
-      <h3>Recent (last 15m)</h3>
-      <ul>
-        {% for event in snapshot.whale_events if is_recent_event(event.timestamp, snapshot.refreshed_at) %}
-        {{ whale_event_item(event) }}
-        {% else %}
-        <li class="muted">No whale orders in the last 15 minutes.</li>
-        {% endfor %}
-      </ul>
-    </div>
-  </div>
-  {% else %}
-  <p>No persisted whale events for this symbol.</p>
-  {% endif %}
+  <p>Technical: {{ format_number(snapshot.bias.technical_score) }}</p>
 </div>
 
 {% for table in snapshot.coin_positions %}

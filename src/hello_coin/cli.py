@@ -171,7 +171,6 @@ async def _run_decision() -> None:
     if not settings.anthropic_api_key:
         print("ANTHROPIC_API_KEY is not set — the decision engine is not configured.")
         return
-    whale_storage = WhaleStorage(DEFAULT_WHALE_DB_PATH)
     technical_storage = TechnicalStorage(DEFAULT_TECHNICAL_DB_PATH)
     liquidation_storage = LiquidationStorage(DEFAULT_LIQUIDATION_DB_PATH)
     decision_storage = DecisionStorage(DEFAULT_DECISION_DB_PATH)
@@ -180,17 +179,14 @@ async def _run_decision() -> None:
             await run_decision_forever(
                 symbols=settings.exchange_watch_symbols,
                 timeframe=settings.technical_timeframe,
-                whale_storage=whale_storage,
                 technical_storage=technical_storage,
                 liquidation_storage=liquidation_storage,
                 anthropic_client=client,
                 model=settings.anthropic_model,
-                whale_lookback_hours=settings.decision_whale_lookback_hours,
                 storage=decision_storage,
                 liquidation_proximity_pct=settings.liquidation_proximity_pct,
             )
     finally:
-        whale_storage.close()
         technical_storage.close()
         liquidation_storage.close()
         decision_storage.close()
@@ -201,7 +197,6 @@ async def _test_decision(symbol: str) -> None:
     if not settings.anthropic_api_key:
         print("ANTHROPIC_API_KEY is not set — the decision engine is not configured.")
         return
-    whale_storage = WhaleStorage(DEFAULT_WHALE_DB_PATH)
     technical_storage = TechnicalStorage(DEFAULT_TECHNICAL_DB_PATH)
     liquidation_storage = LiquidationStorage(DEFAULT_LIQUIDATION_DB_PATH)
     try:
@@ -209,17 +204,14 @@ async def _test_decision(symbol: str) -> None:
             decision = await compute_decision(
                 symbol=symbol,
                 timeframe=settings.technical_timeframe,
-                whale_storage=whale_storage,
                 technical_storage=technical_storage,
                 liquidation_storage=liquidation_storage,
                 anthropic_client=client,
                 model=settings.anthropic_model,
-                whale_lookback_hours=settings.decision_whale_lookback_hours,
                 liquidation_proximity_pct=settings.liquidation_proximity_pct,
             )
         print(decision)
     finally:
-        whale_storage.close()
         technical_storage.close()
         liquidation_storage.close()
 

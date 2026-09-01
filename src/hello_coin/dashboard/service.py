@@ -9,7 +9,6 @@ from hello_coin.dashboard.models import (
     compute_market_bias,
 )
 from hello_coin.decision.technical_score import compute_technical_score
-from hello_coin.decision.whale_score import base_asset, compute_whale_score
 from hello_coin.ingestion.adapters.base import Adapter
 from hello_coin.ingestion.storage import WhaleStorage
 from hello_coin.technical.storage import TechnicalStorage
@@ -22,14 +21,12 @@ class DashboardService:
         technical_storage: TechnicalStorage,
         *,
         timeframe: str,
-        lookback_hours: int,
         hyperdash_watch_coins: Sequence[str] = (),
         position_freshness_seconds: int | None = None,
     ) -> None:
         self._whale_storage = whale_storage
         self._technical_storage = technical_storage
         self._timeframe = timeframe
-        self._lookback_hours = lookback_hours
         self._hyperdash_watch_coins = tuple(coin.upper() for coin in hyperdash_watch_coins)
         self._position_freshness_seconds = position_freshness_seconds
 
@@ -40,20 +37,13 @@ class DashboardService:
     def load_snapshot(
         self, symbol: str, sources: Sequence[Adapter], now: datetime
     ) -> DashboardSnapshot:
-        asset = base_asset(symbol)
-        since = now - timedelta(hours=self._lookback_hours)
-        events = self._whale_storage.recent_events(asset, since)
-        metrics = self._whale_storage.recent_metrics(symbol, since)
-        metrics += self._whale_storage.recent_metrics(asset, since)
         technical = self._technical_storage.latest_snapshot(symbol, self._timeframe)
         technical_score = compute_technical_score(technical) if technical is not None else None
-        bias = compute_market_bias(compute_whale_score(events, metrics), technical_score)
+        bias = compute_market_bias(technical_score)
         coin_positions = self._load_coin_positions(sources, now)
-        activity_symbols = list(dict.fromkeys([asset, *self._hyperdash_watch_coins]))
         return DashboardSnapshot(
             symbol=symbol,
             technical=technical,
-            whale_events=tuple(self._whale_storage.latest_events(activity_symbols, limit=20)),
             bias=bias,
             source_statuses=tuple(self._source_status(source, now) for source in sources),
             refreshed_at=now,

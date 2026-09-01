@@ -4,12 +4,9 @@ from hello_coin.dashboard.formatting import (
     coin_panel_id,
     coin_skew,
     format_age,
-    format_direction,
-    format_event_leverage,
     format_number,
     format_position_leverage,
     format_wallet,
-    is_recent_event,
     position_side_label,
     side_class,
 )
@@ -33,34 +30,6 @@ def test_format_age_computes_seconds_since_timestamp():
     now = datetime(2026, 8, 29, 0, 1, tzinfo=UTC)
     assert format_age("2026-08-29T00:00:30+00:00", now) == "30s"
     assert format_age(None, now) == "N/A"
-
-
-def test_is_recent_event_true_within_15_minutes():
-    now = datetime(2026, 8, 29, 0, 15, tzinfo=UTC)
-    assert is_recent_event("2026-08-29T00:00:01+00:00", now) is True
-
-
-def test_is_recent_event_false_outside_15_minutes():
-    now = datetime(2026, 8, 29, 0, 15, tzinfo=UTC)
-    assert is_recent_event("2026-08-28T23:59:00+00:00", now) is False
-
-
-def test_is_recent_event_false_for_missing_or_invalid_timestamp():
-    now = datetime(2026, 8, 29, 0, 15, tzinfo=UTC)
-    assert is_recent_event(None, now) is False
-    assert is_recent_event("not-a-timestamp", now) is False
-
-
-def test_format_direction_maps_buy_and_sell():
-    assert format_direction("buy") == "LONG (BUY)"
-    assert format_direction("sell") == "SHORT (SELL)"
-    assert format_direction(None) == "N/A"
-
-
-def test_format_event_leverage_reads_nested_and_string_raw():
-    assert format_event_leverage('{"leverage": {"type": "cross", "value": 7}}') == "7x"
-    assert format_event_leverage("{}") == "N/A"
-    assert format_event_leverage("not json") == "N/A"
 
 
 def test_format_position_leverage_combines_type_and_value():

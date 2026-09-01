@@ -31,11 +31,7 @@ def _technical_snapshot() -> dict:
 
 
 @pytest.mark.asyncio
-async def test_compute_decision_combines_all_three_scores_and_calls_llm():
-    whale_storage = MagicMock()
-    whale_storage.recent_events.return_value = [{"side": "buy", "amount_usd": 300.0}]
-    whale_storage.recent_metrics.return_value = []
-
+async def test_compute_decision_combines_both_scores_and_calls_llm():
     technical_storage = MagicMock()
     technical_storage.latest_snapshot.return_value = _technical_snapshot()
 
@@ -53,19 +49,16 @@ async def test_compute_decision_combines_all_three_scores_and_calls_llm():
         decision = await compute_decision(
             symbol="BTCUSDT",
             timeframe="1h",
-            whale_storage=whale_storage,
             technical_storage=technical_storage,
             liquidation_storage=liquidation_storage,
             anthropic_client=anthropic_client,
             model="claude-sonnet-5",
-            whale_lookback_hours=24,
         )
 
     assert decision.symbol == "BTCUSDT"
-    assert decision.whale_score == pytest.approx(1.0)  # all-buy volume_bias
     assert decision.technical_score == pytest.approx(0.475)
     assert decision.liquidation_score == pytest.approx(1.0)
-    assert decision.weighted_score == pytest.approx(0.60 * 1.0 + 0.25 * 0.475 + 0.15 * 1.0)
+    assert decision.weighted_score == pytest.approx(0.60 * 0.475 + 0.40 * 1.0)
     assert decision.action == "buy"
     assert decision.confidence == 0.8
     assert decision.reasoning == "Aligned signals."
@@ -79,11 +72,7 @@ async def test_compute_decision_combines_all_three_scores_and_calls_llm():
 
 
 @pytest.mark.asyncio
-async def test_compute_decision_falls_back_to_two_signal_weighting_when_liquidation_missing():
-    whale_storage = MagicMock()
-    whale_storage.recent_events.return_value = [{"side": "buy", "amount_usd": 300.0}]
-    whale_storage.recent_metrics.return_value = []
-
+async def test_compute_decision_uses_technical_only_when_liquidation_missing():
     technical_storage = MagicMock()
     technical_storage.latest_snapshot.return_value = _technical_snapshot()
 
@@ -101,49 +90,43 @@ async def test_compute_decision_falls_back_to_two_signal_weighting_when_liquidat
         decision = await compute_decision(
             symbol="BTCUSDT",
             timeframe="1h",
-            whale_storage=whale_storage,
             technical_storage=technical_storage,
             liquidation_storage=liquidation_storage,
             anthropic_client=anthropic_client,
             model="claude-sonnet-5",
-            whale_lookback_hours=24,
         )
 
     assert decision.liquidation_score is None
-    assert decision.weighted_score == pytest.approx(0.7 * 1.0 + 0.3 * 0.475)
+    assert decision.weighted_score == pytest.approx(0.475)
 
 
 @pytest.mark.asyncio
-async def test_compute_decision_reports_missing_data_without_reweighting():
-    whale_storage = MagicMock()
-    whale_storage.recent_events.return_value = []
-    whale_storage.recent_metrics.return_value = []
-
+async def test_compute_decision_reports_missing_technical_as_unavailable():
     technical_storage = MagicMock()
-    technical_storage.latest_snapshot.return_value = _technical_snapshot()
+    technical_storage.latest_snapshot.return_value = None
 
     liquidation_storage = MagicMock()
-    liquidation_storage.latest_snapshot.return_value = None
+    liquidation_storage.latest_snapshot.return_value = _liquidation_snapshot()
 
     anthropic_client = MagicMock()
 
     with patch(
         "hello_coin.decision.service.request_decision",
         new=AsyncMock(
-            return_value={"action": "hold", "confidence": 0.3, "reasoning": "No whale data."}
+            return_value={"action": "hold", "confidence": 0.3, "reasoning": "No technical data."}
         ),
-    ):
+    ) as mock_request_decision:
         decision = await compute_decision(
             symbol="BTCUSDT",
             timeframe="1h",
-            whale_storage=whale_storage,
             technical_storage=technical_storage,
             liquidation_storage=liquidation_storage,
             anthropic_client=anthropic_client,
             model="claude-sonnet-5",
-            whale_lookback_hours=24,
         )
 
-    assert decision.whale_score is None
-    assert decision.technical_score == pytest.approx(0.475)
-    assert decision.weighted_score is None  # never re-weighted to 100% technical
+    assert decision.technical_score is None
+    assert decision.liquidation_score == pytest.approx(1.0)
+    assert decision.weighted_score is None  # liquidation alone never becomes the whole score
+    call_kwargs = mock_request_decision.call_args.kwargs
+    assert "technical_score: unavailable" in call_kwargs["user_message"]

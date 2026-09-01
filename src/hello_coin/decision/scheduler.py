@@ -13,12 +13,10 @@ DEFAULT_POLL_INTERVAL_SECONDS = 3600  # 1 hour — matches the technical layer's
 async def poll_once(
     symbol: str,
     timeframe: str,
-    whale_storage: Any,
     technical_storage: Any,
     liquidation_storage: Any,
     anthropic_client: Any,
     model: str,
-    whale_lookback_hours: int,
     storage: DecisionStorage,
     liquidation_proximity_pct: float = 0.10,
 ) -> int:
@@ -26,12 +24,10 @@ async def poll_once(
         decision = await compute_decision(
             symbol=symbol,
             timeframe=timeframe,
-            whale_storage=whale_storage,
             technical_storage=technical_storage,
             liquidation_storage=liquidation_storage,
             anthropic_client=anthropic_client,
             model=model,
-            whale_lookback_hours=whale_lookback_hours,
             liquidation_proximity_pct=liquidation_proximity_pct,
         )
     except Exception:
@@ -43,12 +39,10 @@ async def poll_once(
 async def run_symbol_loop(
     symbol: str,
     timeframe: str,
-    whale_storage: Any,
     technical_storage: Any,
     liquidation_storage: Any,
     anthropic_client: Any,
     model: str,
-    whale_lookback_hours: int,
     storage: DecisionStorage,
     stop_event: asyncio.Event,
     poll_interval_seconds: int,
@@ -58,12 +52,10 @@ async def run_symbol_loop(
         inserted = await poll_once(
             symbol=symbol,
             timeframe=timeframe,
-            whale_storage=whale_storage,
             technical_storage=technical_storage,
             liquidation_storage=liquidation_storage,
             anthropic_client=anthropic_client,
             model=model,
-            whale_lookback_hours=whale_lookback_hours,
             storage=storage,
             liquidation_proximity_pct=liquidation_proximity_pct,
         )
@@ -77,12 +69,10 @@ async def run_symbol_loop(
 async def run_forever(
     symbols: list[str],
     timeframe: str,
-    whale_storage: Any,
     technical_storage: Any,
     liquidation_storage: Any,
     anthropic_client: Any,
     model: str,
-    whale_lookback_hours: int,
     storage: DecisionStorage,
     poll_interval_seconds: int = DEFAULT_POLL_INTERVAL_SECONDS,
     liquidation_proximity_pct: float = 0.10,
@@ -93,12 +83,10 @@ async def run_forever(
             run_symbol_loop(
                 symbol=symbol,
                 timeframe=timeframe,
-                whale_storage=whale_storage,
                 technical_storage=technical_storage,
                 liquidation_storage=liquidation_storage,
                 anthropic_client=anthropic_client,
                 model=model,
-                whale_lookback_hours=whale_lookback_hours,
                 storage=storage,
                 stop_event=stop_event,
                 poll_interval_seconds=poll_interval_seconds,

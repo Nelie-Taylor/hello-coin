@@ -9,7 +9,6 @@ class Decision:
 
     symbol: str
     timestamp: datetime
-    whale_score: float | None
     technical_score: float | None
     liquidation_score: float | None
     weighted_score: float | None

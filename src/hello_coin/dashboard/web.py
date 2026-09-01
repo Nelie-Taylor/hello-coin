@@ -36,9 +36,6 @@ templates.env.globals.update(
     format_number=formatting.format_number,
     format_wallet=formatting.format_wallet,
     format_age=formatting.format_age,
-    format_direction=formatting.format_direction,
-    is_recent_event=formatting.is_recent_event,
-    format_event_leverage=formatting.format_event_leverage,
     format_position_leverage=formatting.format_position_leverage,
     position_side_label=formatting.position_side_label,
     coin_panel_id=formatting.coin_panel_id,
@@ -60,7 +57,6 @@ def create_app(
         WhaleStorage(DEFAULT_WHALE_DB_PATH),
         TechnicalStorage(DEFAULT_TECHNICAL_DB_PATH),
         timeframe=settings.technical_timeframe,
-        lookback_hours=settings.decision_whale_lookback_hours,
         hyperdash_watch_coins=settings.hyperdash_watch_coins,
     )
     background_tasks: list[asyncio.Task[None]] = []

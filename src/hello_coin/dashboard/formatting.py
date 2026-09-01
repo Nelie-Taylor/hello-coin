@@ -1,6 +1,5 @@
 """Pure, framework-free formatting helpers shared by the dashboard templates."""
 
-import json
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
@@ -27,38 +26,6 @@ def format_age(value: object, now: datetime) -> str:
         return f"{max(0, int((now - timestamp).total_seconds()))}s"
     except (TypeError, ValueError):
         return "N/A"
-
-
-def is_recent_event(timestamp: object, now: datetime, within_seconds: int = 900) -> bool:
-    try:
-        event_time = datetime.fromisoformat(str(timestamp))
-    except (TypeError, ValueError):
-        return False
-    return (now - event_time).total_seconds() <= within_seconds
-
-
-def format_direction(side: object) -> str:
-    if side == "buy":
-        return "LONG (BUY)"
-    if side == "sell":
-        return "SHORT (SELL)"
-    return "N/A"
-
-
-def format_event_leverage(raw: object) -> str:
-    if isinstance(raw, str):
-        try:
-            raw = json.loads(raw)
-        except json.JSONDecodeError:
-            return "N/A"
-    if not isinstance(raw, dict):
-        return "N/A"
-    leverage = raw.get("leverage")
-    if isinstance(leverage, dict):
-        leverage = leverage.get("value")
-    if isinstance(leverage, int | float):
-        return f"{leverage:g}x"
-    return "N/A"
 
 
 def format_position_leverage(raw: object) -> str:

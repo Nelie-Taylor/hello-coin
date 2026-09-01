@@ -8,10 +8,9 @@ def _decision(timestamp: datetime) -> Decision:
     return Decision(
         symbol="BTCUSDT",
         timestamp=timestamp,
-        whale_score=0.49,
         technical_score=0.475,
         liquidation_score=0.23,
-        weighted_score=0.485,
+        weighted_score=0.377,
         action="buy",
         confidence=0.8,
         reasoning="Aligned signals.",

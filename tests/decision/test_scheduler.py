@@ -13,10 +13,9 @@ def _decision() -> Decision:
     return Decision(
         symbol="BTCUSDT",
         timestamp=datetime(2026, 8, 22, tzinfo=UTC),
-        whale_score=0.49,
         technical_score=0.475,
         liquidation_score=0.23,
-        weighted_score=0.485,
+        weighted_score=0.377,
         action="buy",
         confidence=0.8,
         reasoning="Aligned signals.",
@@ -34,12 +33,10 @@ async def test_poll_once_inserts_decision_and_returns_count():
         inserted = await poll_once(
             symbol="BTCUSDT",
             timeframe="1h",
-            whale_storage=MagicMock(),
             technical_storage=MagicMock(),
             liquidation_storage=MagicMock(),
             anthropic_client=MagicMock(),
             model="claude-sonnet-5",
-            whale_lookback_hours=24,
             storage=storage,
         )
 
@@ -57,12 +54,10 @@ async def test_poll_once_returns_zero_and_logs_on_failure():
         inserted = await poll_once(
             symbol="BTCUSDT",
             timeframe="1h",
-            whale_storage=MagicMock(),
             technical_storage=MagicMock(),
             liquidation_storage=MagicMock(),
             anthropic_client=MagicMock(),
             model="claude-sonnet-5",
-            whale_lookback_hours=24,
             storage=storage,
         )
 
@@ -86,12 +81,10 @@ async def test_run_symbol_loop_stops_when_event_set_during_poll():
         await run_symbol_loop(
             symbol="BTCUSDT",
             timeframe="1h",
-            whale_storage=MagicMock(),
             technical_storage=MagicMock(),
             liquidation_storage=MagicMock(),
             anthropic_client=MagicMock(),
             model="claude-sonnet-5",
-            whale_lookback_hours=24,
             storage=storage,
             stop_event=stop_event,
             poll_interval_seconds=0,

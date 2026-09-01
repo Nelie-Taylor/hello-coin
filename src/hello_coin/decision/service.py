@@ -1,29 +1,27 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from hello_coin.decision.llm import request_decision
 from hello_coin.decision.models import Decision
 from hello_coin.decision.technical_score import compute_technical_score
-from hello_coin.decision.whale_score import base_asset, compute_whale_score
 from hello_coin.liquidation.score import compute_liquidation_score, nearest_clusters
 
 SYSTEM_PROMPT = (
-    "You are a crypto trading decision assistant for the hello-coin system. Whale activity, "
-    "technical indicators, and the liquidation heatmap are combined into weighted_score: when "
-    "all three signals are available, whale carries 60%, technical 25%, and liquidation 15% of "
-    "the weight; when the liquidation signal is unavailable, whale carries 70% and technical "
-    "30%, exactly as before this signal existed — treat weighted_score's value as authoritative "
-    "rather than assuming a fixed split. Scores range from -1 (strongly bearish) to +1 "
-    "(strongly bullish); a missing score means that data source had nothing usable this cycle, "
-    "not that it's neutral — factor the gap into your confidence rather than ignoring it. When "
-    "liquidation cluster prices are provided, use them as concrete levels for entry/exit timing "
-    "and stop-loss/take-profit placement, not just for direction. Always call the decide tool."
+    "You are a crypto trading decision assistant for the hello-coin system. Technical "
+    "indicators and the liquidation heatmap are combined into weighted_score: when both "
+    "signals are available, technical carries 60% and liquidation 40% of the weight; when "
+    "the liquidation signal is unavailable, the technical score carries 100% — treat "
+    "weighted_score's value as authoritative rather than assuming a fixed split. Scores "
+    "range from -1 (strongly bearish) to +1 (strongly bullish); a missing score means that "
+    "data source had nothing usable this cycle, not that it's neutral — factor the gap into "
+    "your confidence rather than ignoring it. When liquidation cluster prices are provided, "
+    "use them as concrete levels for entry/exit timing and stop-loss/take-profit placement, "
+    "not just for direction. Always call the decide tool."
 )
 
 
 def _build_user_message(
     symbol: str,
-    whale_score: float | None,
     technical_score: float | None,
     liquidation_score: float | None,
     weighted_score: float | None,
@@ -31,7 +29,6 @@ def _build_user_message(
     clusters: dict[str, list[tuple[float, float]]] | None,
 ) -> str:
     lines = [f"Symbol: {symbol}"]
-    lines.append(f"whale_score: {whale_score if whale_score is not None else 'unavailable'}")
     lines.append(
         f"technical_score: {technical_score if technical_score is not None else 'unavailable'}"
     )
@@ -42,7 +39,7 @@ def _build_user_message(
     if weighted_score is not None:
         weighted_display = str(weighted_score)
     else:
-        weighted_display = "unavailable (fewer than two inputs available)"
+        weighted_display = "unavailable (no technical signal this cycle)"
     lines.append(f"weighted_score: {weighted_display}")
     if snapshot is not None:
         lines.append(
@@ -63,23 +60,12 @@ def _build_user_message(
 async def compute_decision(
     symbol: str,
     timeframe: str,
-    whale_storage: Any,
     technical_storage: Any,
     liquidation_storage: Any,
     anthropic_client: Any,
     model: str,
-    whale_lookback_hours: int,
     liquidation_proximity_pct: float = 0.10,
 ) -> Decision:
-    since = datetime.now(tz=UTC) - timedelta(hours=whale_lookback_hours)
-    asset = base_asset(symbol)
-
-    events = whale_storage.recent_events(asset, since)
-    metrics = whale_storage.recent_metrics(symbol, since) + whale_storage.recent_metrics(
-        asset, since
-    )
-    whale_score = compute_whale_score(events, metrics)
-
     snapshot = technical_storage.latest_snapshot(symbol, timeframe)
     technical_score = compute_technical_score(snapshot) if snapshot is not None else None
 
@@ -91,16 +77,15 @@ async def compute_decision(
     )
     clusters = nearest_clusters(liq_snapshot) if liq_snapshot is not None else None
 
-    if whale_score is not None and technical_score is not None and liquidation_score is not None:
-        weighted_score = 0.60 * whale_score + 0.25 * technical_score + 0.15 * liquidation_score
-    elif whale_score is not None and technical_score is not None:
-        weighted_score = 0.7 * whale_score + 0.3 * technical_score
+    if technical_score is not None and liquidation_score is not None:
+        weighted_score = 0.60 * technical_score + 0.40 * liquidation_score
+    elif technical_score is not None:
+        weighted_score = technical_score
     else:
         weighted_score = None
 
     user_message = _build_user_message(
         symbol,
-        whale_score,
         technical_score,
         liquidation_score,
         weighted_score,
@@ -114,7 +99,6 @@ async def compute_decision(
     return Decision(
         symbol=symbol,
         timestamp=datetime.now(tz=UTC),
-        whale_score=whale_score,
         technical_score=technical_score,
         liquidation_score=liquidation_score,
         weighted_score=weighted_score,
