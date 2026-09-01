@@ -1,5 +1,6 @@
 services:
   dashboard:
+    image: ghcr.io/nelie-taylor/hello-coin:latest
     build: .
     env_file: .env
     ports:
