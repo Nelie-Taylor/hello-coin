@@ -43,3 +43,11 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Each buildx push creates ~3 package versions (manifest list, image,
+      # attestation), so 15 kept versions ~= the 5 most recent builds.
+      - uses: actions/delete-package-versions@v5
+        with:
+          package-name: hello-coin
+          package-type: container
+          min-versions-to-keep: 15
