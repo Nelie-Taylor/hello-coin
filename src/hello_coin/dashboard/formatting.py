@@ -29,6 +29,14 @@ def format_age(value: object, now: datetime) -> str:
         return "N/A"
 
 
+def is_recent_event(timestamp: object, now: datetime, within_seconds: int = 900) -> bool:
+    try:
+        event_time = datetime.fromisoformat(str(timestamp))
+    except (TypeError, ValueError):
+        return False
+    return (now - event_time).total_seconds() <= within_seconds
+
+
 def format_direction(side: object) -> str:
     if side == "buy":
         return "LONG (BUY)"

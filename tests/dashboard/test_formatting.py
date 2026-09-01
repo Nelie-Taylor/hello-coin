@@ -9,6 +9,7 @@ from hello_coin.dashboard.formatting import (
     format_number,
     format_position_leverage,
     format_wallet,
+    is_recent_event,
     position_side_label,
     side_class,
 )
@@ -32,6 +33,22 @@ def test_format_age_computes_seconds_since_timestamp():
     now = datetime(2026, 8, 29, 0, 1, tzinfo=UTC)
     assert format_age("2026-08-29T00:00:30+00:00", now) == "30s"
     assert format_age(None, now) == "N/A"
+
+
+def test_is_recent_event_true_within_15_minutes():
+    now = datetime(2026, 8, 29, 0, 15, tzinfo=UTC)
+    assert is_recent_event("2026-08-29T00:00:01+00:00", now) is True
+
+
+def test_is_recent_event_false_outside_15_minutes():
+    now = datetime(2026, 8, 29, 0, 15, tzinfo=UTC)
+    assert is_recent_event("2026-08-28T23:59:00+00:00", now) is False
+
+
+def test_is_recent_event_false_for_missing_or_invalid_timestamp():
+    now = datetime(2026, 8, 29, 0, 15, tzinfo=UTC)
+    assert is_recent_event(None, now) is False
+    assert is_recent_event("not-a-timestamp", now) is False
 
 
 def test_format_direction_maps_buy_and_sell():
