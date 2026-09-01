@@ -4,12 +4,6 @@
   <p>Refresh error: {{ error }}</p>
 </div>
 {% else %}
-<div id="market-overview" class="panel">
-  <h2>{{ snapshot.symbol }} &middot; Market overview</h2>
-  <p>Close: {{ format_number(snapshot.technical.get("close_price") if snapshot.technical else None) }}</p>
-  <p>Timeframe: {{ settings.technical_timeframe }}</p>
-</div>
-
 <div id="technical" class="panel">
   <h2>Technical</h2>
   <p>RSI: {{ format_number(snapshot.technical.get("rsi") if snapshot.technical else None) }}</p>
