@@ -39,9 +39,9 @@ Kept: `base.py` (Adapter ABC + safe_fetch), `hyperdash.py`.
 
 ### Decision engine (`src/hello_coin/decision/`)
 
-- `whale_score.py` deleted. `base_asset()` (still needed by dashboard and decision for the
-  symbol-convention mismatch) moves to a small shared module, e.g.
-  `src/hello_coin/symbols.py`.
+- `whale_score.py` deleted. (`base_asset()` was planned to move to a shared module, but after
+  the rework nothing used it anymore — dashboard and decision both stopped reading whale
+  events by symbol — so it was deleted outright.)
 - New weighting: **technical 60% / liquidation 40%** when both are available; when the
   liquidation signal is missing (Coinglass not configured), technical carries 100%. No
   interpolation between the splits.
