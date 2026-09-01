@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from hello_coin.ingestion.models import WhaleEvent, WhaleMetric
+from hello_coin.ingestion.models import WhaleEvent
 from hello_coin.ingestion.position_skew import SkewSnapshot
 
 _EVENTS_SCHEMA = """
@@ -19,20 +19,6 @@ CREATE TABLE IF NOT EXISTS whale_events (
     amount REAL NOT NULL,
     amount_usd REAL,
     wallet_address TEXT,
-    dedup_key TEXT NOT NULL,
-    raw TEXT NOT NULL,
-    UNIQUE(source, dedup_key)
-)
-"""
-
-_METRICS_SCHEMA = """
-CREATE TABLE IF NOT EXISTS whale_metrics (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source TEXT NOT NULL,
-    timestamp TEXT NOT NULL,
-    symbol TEXT NOT NULL,
-    metric_name TEXT NOT NULL,
-    value REAL NOT NULL,
     dedup_key TEXT NOT NULL,
     raw TEXT NOT NULL,
     UNIQUE(source, dedup_key)
@@ -59,10 +45,6 @@ CREATE TABLE IF NOT EXISTS coin_skew_snapshots (
 _EVENTS_SYMBOL_INDEX = (
     "CREATE INDEX IF NOT EXISTS idx_whale_events_symbol_timestamp "
     "ON whale_events(symbol COLLATE NOCASE, timestamp)"
-)
-_METRICS_SYMBOL_INDEX = (
-    "CREATE INDEX IF NOT EXISTS idx_whale_metrics_symbol_timestamp "
-    "ON whale_metrics(symbol COLLATE NOCASE, timestamp)"
 )
 _SKEW_SNAPSHOTS_COIN_INDEX = (
     "CREATE INDEX IF NOT EXISTS idx_coin_skew_snapshots_coin_timestamp "
@@ -104,14 +86,12 @@ class WhaleStorage:
             Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(self._db_path)
         self._conn.execute(_EVENTS_SCHEMA)
-        self._conn.execute(_METRICS_SCHEMA)
         self._conn.execute(_SKEW_SNAPSHOTS_SCHEMA)
         try:
             self._conn.execute("ALTER TABLE coin_skew_snapshots ADD COLUMN price REAL")
         except sqlite3.OperationalError:
             pass  # already migrated, or the table was just created with the column present
         self._conn.execute(_EVENTS_SYMBOL_INDEX)
-        self._conn.execute(_METRICS_SYMBOL_INDEX)
         self._conn.execute(_SKEW_SNAPSHOTS_COIN_INDEX)
         self._conn.commit()
 
@@ -140,29 +120,6 @@ class WhaleStorage:
                     event.wallet_address,
                     event.dedup_key,
                     json.dumps(event.raw),
-                ),
-            )
-            inserted += cursor.rowcount
-        self._conn.commit()
-        return inserted
-
-    def insert_metrics(self, metrics: list[WhaleMetric]) -> int:
-        inserted = 0
-        for metric in metrics:
-            cursor = self._conn.execute(
-                """
-                INSERT OR IGNORE INTO whale_metrics
-                    (source, timestamp, symbol, metric_name, value, dedup_key, raw)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    metric.source,
-                    metric.timestamp.isoformat(),
-                    metric.symbol,
-                    metric.metric_name,
-                    metric.value,
-                    metric.dedup_key,
-                    json.dumps(metric.raw),
                 ),
             )
             inserted += cursor.rowcount
@@ -207,18 +164,6 @@ class WhaleStorage:
             (*symbols, limit),
         ).fetchall()
         return [dict(zip(_EVENT_COLUMNS, row, strict=True)) for row in rows]
-
-    def recent_metrics(self, symbol: str, since: datetime) -> list[dict]:
-        rows = self._conn.execute(
-            """
-            SELECT source, timestamp, symbol, metric_name, value, dedup_key, raw
-            FROM whale_metrics
-            WHERE symbol = ? COLLATE NOCASE AND timestamp >= ?
-            """,
-            (symbol, since.isoformat()),
-        ).fetchall()
-        columns = ("source", "timestamp", "symbol", "metric_name", "value", "dedup_key", "raw")
-        return [dict(zip(columns, row, strict=True)) for row in rows]
 
     def insert_skew_snapshots(self, snapshots: list[SkewSnapshot]) -> int:
         inserted = 0

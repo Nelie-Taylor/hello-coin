@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from hello_coin.ingestion.models import WhaleEvent, WhaleMetric
+from hello_coin.ingestion.models import WhaleEvent
 from hello_coin.ingestion.position_skew import SkewSnapshot
 from hello_coin.ingestion.storage import WhaleStorage
 
@@ -36,42 +36,12 @@ def test_insert_events_returns_count_and_dedupes():
     assert storage.count_events(source="other") == 0
 
 
-def test_insert_metrics_returns_count_and_dedupes():
-    storage = WhaleStorage(":memory:")
-    metric = WhaleMetric(
-        source="binance",
-        timestamp=datetime(2026, 8, 22, tzinfo=UTC),
-        symbol="BTCUSDT",
-        metric_name="oi",
-        value=1.0,
-        dedup_key="m1",
-        raw={},
-    )
-
-    inserted_first = storage.insert_metrics([metric])
-    inserted_second = storage.insert_metrics([metric])
-
-    assert inserted_first == 1
-    assert inserted_second == 0
-
-
 def test_recent_events_uses_an_index_instead_of_scanning_the_table():
     storage = WhaleStorage(":memory:")
 
     plan = storage._conn.execute(
         "EXPLAIN QUERY PLAN "
         "SELECT * FROM whale_events WHERE symbol = 'BTC' COLLATE NOCASE AND timestamp >= '2026-01-01'"
-    ).fetchall()
-
-    assert any("USING INDEX" in str(step) for step in plan)
-
-
-def test_recent_metrics_uses_an_index_instead_of_scanning_the_table():
-    storage = WhaleStorage(":memory:")
-
-    plan = storage._conn.execute(
-        "EXPLAIN QUERY PLAN "
-        "SELECT * FROM whale_metrics WHERE symbol = 'BTCUSDT' COLLATE NOCASE AND timestamp >= '2026-01-01'"
     ).fetchall()
 
     assert any("USING INDEX" in str(step) for step in plan)
@@ -139,28 +109,6 @@ def test_latest_events_with_multiple_symbols_excludes_others():
     events = storage.latest_events(["link", "sol"], limit=10)
 
     assert events == []
-
-
-def test_recent_metrics_filters_by_symbol_case_insensitive_and_since():
-    storage = WhaleStorage(":memory:")
-    metric = WhaleMetric(
-        source="binance",
-        timestamp=datetime(2026, 8, 22, tzinfo=UTC),
-        symbol="BTCUSDT",
-        metric_name="top_trader_long_short_ratio",
-        value=1.8,
-        dedup_key="m1",
-        raw={},
-    )
-    storage.insert_metrics([metric])
-
-    matching = storage.recent_metrics("btcusdt", since=datetime(2026, 8, 21, tzinfo=UTC))
-    wrong_symbol = storage.recent_metrics("btc", since=datetime(2026, 8, 21, tzinfo=UTC))
-
-    assert len(matching) == 1
-    assert matching[0]["metric_name"] == "top_trader_long_short_ratio"
-    assert matching[0]["value"] == 1.8
-    assert wrong_symbol == []
 
 
 def _skew_snapshot(coin: str, timestamp: datetime, long_pct: float = 0.8) -> SkewSnapshot:

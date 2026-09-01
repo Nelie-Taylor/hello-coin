@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 
-from hello_coin.ingestion.models import WhaleEvent, WhaleMetric
+from hello_coin.ingestion.models import WhaleEvent
 from hello_coin.ingestion.position_skew import SkewAlert, SkewSnapshot
 
 logger = logging.getLogger(__name__)
@@ -42,10 +42,10 @@ class Adapter(ABC):
         return self._last_error
 
     @abstractmethod
-    async def fetch(self) -> list[WhaleEvent] | list[WhaleMetric]:
+    async def fetch(self) -> list[WhaleEvent]:
         raise NotImplementedError
 
-    async def safe_fetch(self) -> list[WhaleEvent] | list[WhaleMetric]:
+    async def safe_fetch(self) -> list[WhaleEvent]:
         if self._disabled:
             return []
         try:

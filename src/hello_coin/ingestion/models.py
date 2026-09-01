@@ -18,16 +18,3 @@ class WhaleEvent:
     wallet_address: str | None
     dedup_key: str
     raw: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class WhaleMetric:
-    """An aggregate whale-related indicator over time, not tied to one wallet."""
-
-    source: str
-    timestamp: datetime
-    symbol: str
-    metric_name: str
-    value: float
-    dedup_key: str
-    raw: dict[str, Any] = field(default_factory=dict)

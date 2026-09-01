@@ -2,7 +2,6 @@ import asyncio
 import logging
 
 from hello_coin.ingestion.adapters.base import Adapter
-from hello_coin.ingestion.models import WhaleEvent
 from hello_coin.ingestion.notifications import NotificationSink
 from hello_coin.ingestion.storage import WhaleStorage
 
@@ -15,12 +14,7 @@ async def poll_once(
     notifier: NotificationSink | None = None,
 ) -> int:
     result = await adapter.safe_fetch()
-    if not result:
-        inserted = 0
-    elif isinstance(result[0], WhaleEvent):
-        inserted = storage.insert_events(result)
-    else:
-        inserted = storage.insert_metrics(result)
+    inserted = storage.insert_events(result) if result else 0
 
     storage.insert_skew_snapshots(adapter.consume_skew_snapshots())
 
