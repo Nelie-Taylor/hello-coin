@@ -139,11 +139,11 @@ def test_ingest_run_parses():
 def test_ingest_test_parses_source():
     parser = build_parser()
 
-    args = parser.parse_args(["ingest", "test", "hyperliquid"])
+    args = parser.parse_args(["ingest", "test", "hyperdash"])
 
     assert args.command == "ingest"
     assert args.ingest_command == "test"
-    assert args.source == "hyperliquid"
+    assert args.source == "hyperdash"
 
 
 def test_technical_run_parses():

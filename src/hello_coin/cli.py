@@ -45,17 +45,17 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser(
-        "run", help="Run whale ingestion and technical indicators continuously"
+        "run", help="Run position-skew ingestion and technical indicators continuously"
     )
     subparsers.add_parser("dashboard", help="Run the terminal market dashboard")
 
-    ingest_parser = subparsers.add_parser("ingest", help="Whale data ingestion commands")
+    ingest_parser = subparsers.add_parser("ingest", help="Position-skew ingestion commands")
     ingest_subparsers = ingest_parser.add_subparsers(dest="ingest_command", required=True)
     ingest_subparsers.add_parser("run", help="Run the ingestion service continuously")
     ingest_test_parser = ingest_subparsers.add_parser(
         "test", help="Fetch once from a single adapter and print the result"
     )
-    ingest_test_parser.add_argument("source", help="Adapter name, e.g. hyperliquid")
+    ingest_test_parser.add_argument("source", help="Adapter name, e.g. hyperdash")
 
     technical_parser = subparsers.add_parser("technical", help="Technical indicator commands")
     technical_subparsers = technical_parser.add_subparsers(

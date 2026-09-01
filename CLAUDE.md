@@ -15,33 +15,28 @@ Python project managed with `uv` (src layout, package `hello_coin` under `src/he
 
 ## Architecture
 
-`src/hello_coin/ingestion/` is the whale-data ingestion layer (see
-`docs/superpowers/specs/2026-08-22-whale-data-ingestion-design.md` for the full design):
+`src/hello_coin/ingestion/` is the position-skew ingestion layer (historically the whale-data
+layer — the whale-activity feature was removed on 2026-09-01, see
+`docs/superpowers/specs/2026-09-01-remove-whale-activity-design.md`; the package and
+`data/whale.db` keep their names so stored skew history survives):
 
-- `models.py` — `WhaleEvent` (discrete per-wallet actions) and `WhaleMetric` (aggregate
-  indicators), the two normalized shapes every adapter produces.
+- `models.py` — `WhaleEvent`: hyperdash persists whale positions as `position` events.
 - `adapters/base.py` — `Adapter` abstract base: subclasses implement only `fetch()`;
   `safe_fetch()` handles logging and disabling a source after repeated failures.
-- `adapters/*.py` — one file per data source:
-  - No key needed: `hyperliquid.py`, `binance.py`, `okx.py`, `bybit.py`, `bitget.py`.
-  - Free key: `etherscan.py` (Ethereum/BSC/Polygon via Etherscan's unified V2 API — one class,
-    three registered instances, one per `chainid`).
-  - Paid/freemium key: `cryptoquant.py`, `debank.py`, `nansen.py`, `whale_alert.py`,
-    `bitquery.py`, and (in `liquidation/`) `coinglass.py`. None of these have been
-    smoke-tested against a real key — see
-    `docs/superpowers/plans/2026-08-22-freemium-paid-adapters.md` for per-adapter confidence
-    notes (Whale Alert and Bitquery parse their responses defensively since their exact
-    response shape wasn't first-party-confirmed).
-  - Deferred (not implemented — insufficient verification): ClankApp, Solscan, Arkham. See the
-    same plan doc for why.
-- `registry.py` — builds the list of adapters whose `is_configured()` is true.
-- `storage.py` — SQLite (`data/whale.db`, gitignored) with dedup on `(source, dedup_key)`.
-- `scheduler.py` — runs every configured adapter concurrently, each on its own
-  `poll_interval_seconds`.
-- `config.py` — `pydantic-settings` reading `.env` (see `.env.example`); every adapter's
-  credentials are optional, so the service runs with whatever subset is configured.
+- `adapters/hyperdash.py` — the only adapter: fetches whale positions per watched coin from
+  Hyperdash, computes LONG/SHORT skew, samples skew snapshots (with the coin price from
+  Hyperliquid's public `allMids` endpoint), and emits `SkewAlert`s on dominance transitions.
+- `position_skew.py` — skew computation, `SkewSnapshot`, `SkewAlert`.
+- `notifications.py` — `TelegramNotifier` delivering LONG/SHORT dominance alerts.
+- `registry.py` — builds the adapter list (just hyperdash) when `is_configured()` is true.
+- `storage.py` — SQLite (`data/whale.db`, gitignored): position events deduped on
+  `(source, dedup_key)` plus 30-day skew snapshot history.
+- `scheduler.py` — polls each configured adapter on its own `poll_interval_seconds`.
+- `config.py` — `pydantic-settings` reading `.env` (see `.env.example`); all credentials are
+  optional, so the service runs with whatever subset is configured.
 
-`src/hello_coin/technical/` is the technical-indicators layer (the 30%-weighted signal), see
+`src/hello_coin/technical/` is the technical-indicators layer (the 60%-weighted signal; 100%
+when the liquidation signal is unavailable), see
 `docs/superpowers/specs/2026-08-22-technical-indicators-design.md`:
 
 - `models.py` — `Candle` and `IndicatorSnapshot` (all indicator fields `float | None`; `None`
@@ -55,8 +50,8 @@ Python project managed with `uv` (src layout, package `hello_coin` under `src/he
 - `scheduler.py` — polls every symbol in `exchange_watch_symbols` every 15 minutes. No
   `Adapter`-style registry — there's one data source here, not many.
 
-`src/hello_coin/liquidation/` is the liquidation-heatmap layer (the 15%-weighted signal, folded
-into the decision engine's weighted score alongside whale/technical), see
+`src/hello_coin/liquidation/` is the liquidation-heatmap layer (the 40%-weighted signal, folded
+into the decision engine's weighted score alongside the technical signal), see
 `docs/superpowers/specs/2026-08-22-liquidation-heatmap-design.md`:
 
 - `models.py` — `LiquidationBucket` (one price level + estimated leveraged value that
@@ -77,18 +72,16 @@ into the decision engine's weighted score alongside whale/technical), see
 `docs/superpowers/specs/2026-08-22-decision-engine-design.md`:
 
 - `models.py` — `Decision` (symbol, scores, action/confidence/reasoning, raw LLM response).
-- `whale_score.py` — aggregates recent `data/whale.db` rows into `[-1, 1]` (or `None`);
-  `base_asset()` handles the symbol-convention mismatch across whale sources (documented
-  limitation — see the spec).
+  The `decisions.db` schema keeps a legacy nullable `whale_score` column from the removed
+  whale signal; new rows store NULL there.
 - `technical_score.py` — aggregates the latest `data/technical.db` snapshot into `[-1, 1]` (or
   `None`) from RSI/MACD/Bollinger/EMA.
 - `llm.py` — calls the Anthropic API via tool use for a structured `action`/`confidence`/
   `reasoning` decision. No real-network test — every call costs money.
-- `service.py` — combines whale/technical/liquidation scores (0.60/0.25/0.15 when all three are
-  available; falls back to the original 0.7/0.3 whale/technical split when the liquidation
-  signal is missing — never silently re-weighted to anything in between) into the LLM prompt,
-  along with the nearest liquidation cluster price levels for entry/exit context, and parses the
-  result into a `Decision`.
+- `service.py` — combines technical/liquidation scores (0.60/0.40 when both are available;
+  technical carries 100% when the liquidation signal is missing — never silently re-weighted
+  to anything in between) into the LLM prompt, along with the nearest liquidation cluster
+  price levels for entry/exit context, and parses the result into a `Decision`.
 - `storage.py` — SQLite (`data/decisions.db`, gitignored) with dedup on `(symbol, timestamp)`.
 - `scheduler.py` — polls every symbol in `exchange_watch_symbols` every 1 hour.
 
@@ -105,15 +98,16 @@ with the user first (see the "Tooling" section below), which hasn't happened.
 
 This is a crypto trading system. Per the project owner:
 
-- Continuously track whale (large holder) activity — on-chain movements, exchange order flow, accumulation/
-  distribution.
-- Combine whale signals with technical indicators (trend, momentum, volatility, volume).
-- Use AI to decide trade entries and exits from the combined signal.
-- Decision weighting: whale activity ≈ 60%, technical indicators ≈ 25%, liquidation heatmap ≈ 15% when
-  all three signals are available. When the liquidation signal is unavailable (e.g. Coinglass not
-  configured), falls back to whale ≈ 70% / technical ≈ 30% exactly as before — this fallback split
-  supersedes the original "always 70/30" wording. Any scoring/decision logic should preserve these
-  fixed splits rather than interpolating between them or treating all signal sources as equal inputs.
+- The whale-activity feature (on-chain movements, exchange order flow, whale scoring) was
+  **removed entirely on 2026-09-01** at the owner's request — do not re-add it. What remains
+  from that era is the hyperdash position-skew tracking (dashboard skew charts, coin position
+  tables, Telegram dominance alerts), which the owner explicitly kept.
+- Combine technical indicators (trend, momentum, volatility, volume) with the liquidation
+  heatmap and use AI to decide trade entries and exits from the combined signal.
+- Decision weighting: technical indicators ≈ 60%, liquidation heatmap ≈ 40% when both signals
+  are available. When the liquidation signal is unavailable (e.g. Coinglass not configured),
+  the technical score carries 100%. Any scoring/decision logic should preserve these fixed
+  splits rather than interpolating between them or treating all signal sources as equal inputs.
 
 ## Tooling already available in this Claude Code environment
 
@@ -121,13 +115,13 @@ This session has MCP servers and skills connected that map directly onto the pro
 wiring the eventual implementation to reuse these rather than re-implementing equivalent data fetching from
 scratch:
 
-- `market-intel` skill / `mcp__market-data__*` tools — whale activity, exchange flows, token unlocks, ETF
-  flows, DeFi TVL, on-chain cycle indicators. This is the primary source for the whale signal (≈70% or
-  ≈60% weighted, depending on whether the liquidation signal is available — see Architecture above).
+- `market-intel` skill / `mcp__market-data__*` tools — exchange flows, token unlocks, ETF flows, DeFi
+  TVL, on-chain cycle indicators. (Formerly the primary source for the removed whale signal — do not
+  wire it back in for that purpose without the owner asking.)
 - `technical-analysis` skill — trend/momentum/volatility/volume indicators (MACD, RSI, BOLL, EMA, ATR, etc.)
-  for the technical signal (≈30% or ≈25% weighted, same caveat).
+  for the technical signal (≈60% weighted; 100% when the liquidation signal is unavailable).
 - `sentiment-analyst` skill — funding rates, long/short ratio, open interest, fear & greed — a possible
-  secondary input if the design later separates sentiment from pure whale/TA signals.
+  secondary input if the design later separates sentiment from the TA signal.
 - `macro-analyst` skill — broader macro/cross-asset context (rates, DXY, risk-on/off).
 - `bitget-skill` — order placement/cancellation, positions, leverage, balances on Bitget; the likely execution
   layer once a decision engine exists.
